@@ -8,11 +8,13 @@
  *   - Code samples are written with  py`...`  (also String.raw).
  *   - [[p:pattern-id]] renders a pattern chip, [[proj:b01]] a project link,
  *     [[c:concept-id]] a concept link, [[f:chapter-id]] a framework link.
- *   - Never write a dollar sign followed by an opening brace inside a template.
+ *   - A literal dollar-brace (e.g. GitHub Actions expressions) must be written as
+ *     backslash-dollar-brace; the tags below strip the backslash.
  */
-const md = String.raw;
-const py = String.raw;
-const txt = String.raw;
+const _raw = (s, ...v) => String.raw(s, ...v).replace(/\\\$\{/g, "$" + "{");
+const md = _raw;
+const py = _raw;
+const txt = _raw;
 
 window.FRAMEWORK = [];
 window.CONCEPTS = [];

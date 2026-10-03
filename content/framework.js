@@ -416,3 +416,21 @@ priority = (value × frequency × verifiability) / (risk × integration_effort)
 > The full worked version is the capstone, [[proj:a08]].
 `,
 });
+
+window.TRACK_INTROS = {
+  beginner: md`
+> **Assumes:** Python basics (functions, classes, dicts, files). **Teaches:** the core loop of AI engineering on single-call systems. Every project here is small enough to build in an afternoon, but each is a real, hireable scenario.
+
+Do these in order. B01 builds the ~llm.py~ gateway every other project reuses. By B10 you'll have used structured outputs, validation, routing, retrieval, batching, judges and human review: the vocabulary for everything that follows.
+`,
+  intermediate: md`
+> **New here:** systems with several moving parts: real retrieval (embeddings, hybrid search, reranking), tools and agent loops, MCP, text-to-SQL, workflows with state, cascades for cost, calibrated judges, conversational memory and prompt CI.
+
+Each project still follows the same eight stages. Notice how often the *same* beginner patterns (schemas, validation, human review, evals) carry the most weight in these bigger designs.
+`,
+  advanced: md`
+> **New here:** system design at organisational scale: security (permissions, prompt injection), durability (workflows that run for days), multi-agent orchestration, platforms serving many teams, evaluation as a continuous process, and company-wide strategy.
+
+These are study projects. Read the brief, **write your own one-page design first**, then compare. The gap between your design and the one here is the most valuable thing in the lab.
+`,
+};

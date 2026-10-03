@@ -145,7 +145,7 @@ question ─┬─▶ BM25 keyword search  ─┐
           └─▶ vector search        ─┴─▶ merge (RRF) ─▶ reranker ─▶ top 5 ─▶ LLM
 ~~~
 - **RRF (reciprocal rank fusion)** merges two ranked lists: ~score = Σ 1/(60 + rank)~.
-- A **reranker** (a cross-encoder model) re-scores the top ~50 candidates against the question more accurately than the embedding can.
+- A **reranker** (a cross-encoder model) re-scores the top ≈50 candidates against the question more accurately than the embedding can.
 
 ## Chunking matters more than the vector DB
 - Split on structure (headings, sections), not every N characters.

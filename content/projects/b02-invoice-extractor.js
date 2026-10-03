@@ -21,7 +21,7 @@ project({
 | What fields do you enter? | Supplier, invoice number, date, due date, currency, line items (description, qty, unit price, amount), subtotal, tax, total | The schema |
 | What's a costly mistake? | Wrong **total** or **duplicate** invoice → client pays twice or books are wrong | Arithmetic and duplicate checks are mandatory |
 | How long per invoice today? | ≈4 minutes typing + checking | 9,000 × 4 min = 600 hours/month |
-| Are PDFs scanned or digital? | ~70% digital, 30% scans/phone photos | Need vision-capable PDF input |
+| Are PDFs scanned or digital? | ≈70% digital, 30% scans/phone photos | Need vision-capable PDF input |
 | Will a human still check? | Yes, they want to review anything uncertain, but not everything | Thresholds + review queue |
 | History? | 5 years of PDFs + what was entered in QuickBooks | Instant eval set |
 

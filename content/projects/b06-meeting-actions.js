@@ -3,7 +3,7 @@ project({
   level: "beginner",
   title: "Meeting transcripts → decisions and action items",
   industry: "Consulting",
-  client: "Keystone Consulting: 200 consultants, ~1,500 client calls a month",
+  client: "Keystone Consulting: 200 consultants, ≈1,500 client calls a month",
   time: "3–4 hours",
   summary: "Process 2-hour call transcripts in chunks, merge and validate the action items in code, and push them to the project tool. Includes an eval that matches items by meaning.",
   newConcepts: ["Chunking long inputs with overlap", "Deterministic merge/dedupe", "Validation against known entities", "Precision/recall for lists", "Semantic matching as a grader"],
