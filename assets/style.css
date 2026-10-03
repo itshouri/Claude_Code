@@ -16,6 +16,12 @@
   --warn-bg: #fff8e6;
   --warn-border: #f0d48a;
   --radius: 10px;
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-comment: #6e7781;
+  --hl-number: #0550ae;
+  --hl-title: #8250df;
+  --hl-attr: #953800;
   --font: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -33,12 +39,22 @@
     --accent-soft: #1f3a31;
     --warn-bg: #3a3220;
     --warn-border: #6b5a2a;
+    --hl-keyword: #ff7b72;
+    --hl-string: #a5d6ff;
+    --hl-comment: #8b949e;
+    --hl-number: #79c0ff;
+    --hl-title: #d2a8ff;
+    --hl-attr: #ffa657;
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #212121; --bg-side: #171717; --bg-soft: #2a2a2a; --bg-code: #0d1117;
   --text: #ececec; --muted: #b4b4b4; --faint: #8a8a8a; --border: #383838;
   --accent: #19c37d; --accent-soft: #1f3a31; --warn-bg: #3a3220; --warn-border: #6b5a2a;
+  --hl-keyword: #ff7b72; --hl-string: #a5d6ff; --hl-comment: #8b949e; --hl-number: #79c0ff;
+  --hl-title: #d2a8ff; --hl-attr: #ffa657;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -118,7 +134,13 @@ pre {
   font-size: 13.5px; line-height: 1.55; margin: 0 0 16px;
 }
 pre code { background: none; padding: 0; font-size: inherit; }
-pre code.hljs { background: none; padding: 0; }
+pre code.hljs { background: none; padding: 0; color: var(--text); }
+.hljs-keyword, .hljs-selector-tag, .hljs-type, .hljs-meta .hljs-keyword { color: var(--hl-keyword); }
+.hljs-string, .hljs-regexp, .hljs-meta .hljs-string { color: var(--hl-string); }
+.hljs-comment, .hljs-quote { color: var(--hl-comment); font-style: italic; }
+.hljs-number, .hljs-literal, .hljs-built_in, .hljs-symbol { color: var(--hl-number); }
+.hljs-title, .hljs-title.function_, .hljs-title.class_, .hljs-section { color: var(--hl-title); }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-params, .hljs-meta { color: var(--hl-attr); }
 .copy-btn {
   position: absolute; top: 8px; right: 8px;
   font: 12px var(--font); padding: 3px 8px; cursor: pointer;
@@ -171,7 +193,7 @@ th { background: var(--bg-soft); font-weight: 600; }
 
 /* Project page */
 .stage-nav {
-  position: sticky; top: 0; z-index: 5; background: var(--bg);
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
   display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; margin: 0 0 8px;
   border-bottom: 1px solid var(--border);
 }
