@@ -348,3 +348,32 @@ ul.ready label { display: flex; gap: 10px; align-items: baseline; cursor: pointe
 /* long inline code (e.g. in "the code in plain words") wraps instead of widening the page on phones */
 :not(pre) > code, li code, td code { overflow-wrap: anywhere; }
 .kind-py { color: #c27c0e; }
+
+/* ---------- icons and dividers ---------- */
+svg.ico { width: 16px; height: 16px; flex: 0 0 auto; vertical-align: -3px; }
+.nav-link svg.ico { color: var(--muted); }
+.nav-link.active svg.ico { color: var(--accent); }
+.nav-section svg.ico { width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; }
+svg.ico.h1 { width: 28px; height: 28px; margin-right: 10px; vertical-align: -4px; color: var(--accent); }
+svg.ico.h { width: 20px; height: 20px; margin-right: 8px; vertical-align: -3px; color: var(--accent); }
+svg.ico.big { width: 28px; height: 28px; color: var(--accent); display: block; margin-bottom: 8px; }
+.stage-label { display: flex; align-items: center; gap: 6px; }
+.stage-label svg.ico { color: var(--accent); width: 15px; height: 15px; }
+.stage-nav a svg.ico { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; }
+.kind svg.ico { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; }
+ol.path-list .tick svg.ico { width: 16px; height: 16px; vertical-align: 0; }
+.path-banner > svg.ico { color: var(--accent); margin-right: 6px; }
+.card-ico { color: var(--accent); margin-bottom: 6px; }
+.card-ico svg.ico { width: 22px; height: 22px; }
+
+/* a line with a small icon in the middle, between big sections */
+.divider { display: flex; align-items: center; gap: 12px; margin: 44px 0 0; color: var(--faint); }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.divider > span { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); }
+.divider > span:empty { width: 6px; height: 6px; background: var(--border); border: 0; }
+.divider svg.ico { width: 15px; height: 15px; }
+.divider + .stage .stage-label, .divider + p.stage-label { margin-top: 14px; }
+.divider + h2, .divider + .phase h2 { margin-top: 18px; }
+hr { border: 0; height: 1px; background: linear-gradient(to right, transparent, var(--border) 15%, var(--border) 85%, transparent); margin: 36px 0; }
+/* inside long reading pages, each new "##" section gets a light rule above it */
+.prose > h2:not(:first-child) { border-top: 1px solid var(--border); padding-top: 26px; margin-top: 34px; }

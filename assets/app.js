@@ -22,6 +22,43 @@
     ["practice", "Practice", "Practice and interview prep"],
   ];
 
+  /* ---------- icons: simple line drawings (24×24), coloured by the surrounding text ---------- */
+  const ICONS = {
+    home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    play: '<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>',
+    map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+    code: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>',
+    compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+    bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+    puzzle: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><circle cx="16.5" cy="16.5" r="3.5"/>',
+    grid: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17"/>',
+    book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18"/>',
+    seed: '<path d="M12 21v-9"/><path d="M12 12C12 7 8 5 4 5c0 4 3 7 8 7z"/><path d="M12 14c0-4 3-6 8-6 0 4-3 6-8 6z"/>',
+    layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    rocket: '<path d="M5 15c-1.5 1.5-2 4-2 6 2 0 4.5-.5 6-2"/><path d="M9 15l-3-3c2-6 7-9 14-9 0 7-3 12-9 14z"/><circle cx="15" cy="9" r="1.5"/>',
+    flag: '<path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/>',
+    check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+    list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+    frame: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><circle cx="12" cy="12" r="2.5"/>',
+    pencil: '<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>',
+    wrench: '<path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3l7.5-7.5"/><path d="M14.5 6.5L17 4a4 4 0 0 0-2.5 2.5z"/><path d="M4 20l3-3"/>',
+    gauge: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>',
+    pulse: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    repeat: '<path d="M4 12a8 8 0 0 1 14-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 0 1-14 5.3L4 15"/><path d="M4 20v-5h5"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+    spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  };
+  const icon = (name, cls = "") => ICONS[name] ? '<svg class="ico ' + cls + '" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + "</svg>" : "";
+  const divider = (name) => '<div class="divider" role="separator"><span>' + (name ? icon(name) : "") + "</span></div>";
+  const STAGE_ICON = { start: "list", brief: "mail", discovery: "search", frame: "frame", design: "pencil", build: "wrench", evaluate: "gauge", operate: "pulse", levelUp: "trend", recap: "repeat", practice: "target" };
+  const KIND_ICON = { py: "code", page: "play", f: "compass", c: "bulb", proj: "briefcase", check: "flag", s: "chat" };
+  const PHASE_ICON = { orientation: "play", python: "code", foundations: "compass", "first-project": "spark", beginner: "seed", intermediate: "layers", advanced: "rocket", career: "briefcase" };
+
   const $ = (sel, el = document) => el.querySelector(sel);
   const main = $("#main");
 
@@ -186,29 +223,29 @@
       '<a class="nav-link' + (route === href ? " active" : "") + '" href="' + href + '">' + label + extra + "</a>";
     let h = "";
     if (!q) {
-      h += link("#/", "Home");
-      h += link("#/start", "▶ Start here", isDone("step:page:start") ? '<span class="done">✓</span>' : "");
-      h += link("#/path", "Learning path", '<span class="num-r">' + stepsDone() + "/" + STEPS.length + "</span>");
+      h += link("#/", icon("home") + "Home");
+      h += link("#/start", icon("play") + "Start here", isDone("step:page:start") ? '<span class="done">✓</span>' : "");
+      h += link("#/path", icon("map") + "Learning path", '<span class="num-r">' + stepsDone() + "/" + STEPS.length + "</span>");
       const pyDone = (window.PYTHON_LESSONS || []).filter((l) => isDone("step:py:" + l.id)).length;
-      h += link("#/python", "Python toolkit", '<span class="num-r">' + pyDone + "/" + (window.PYTHON_LESSONS || []).length + "</span>");
+      h += link("#/python", icon("code") + "Python toolkit", '<span class="num-r">' + pyDone + "/" + (window.PYTHON_LESSONS || []).length + "</span>");
     }
     LEVELS.forEach((lvl) => {
       const items = projectsOf(lvl.id).filter((p) => !q || searchText(p).includes(q));
       if (!items.length) return;
-      h += '<div class="nav-section"><a href="#/track/' + lvl.id + '" style="color:inherit">' + lvl.name + " projects</a></div>";
+      h += '<div class="nav-section"><a href="#/track/' + lvl.id + '" style="color:inherit">' + icon(PHASE_ICON[lvl.id]) + lvl.name + " projects</a></div>";
       items.forEach((p) => {
         h += link("#/project/" + p.id, '<span class="num">' + p.code + "</span>" + esc(p.title), isDone(p.id) ? '<span class="done">✓</span>' : "");
       });
     });
     if (!q) {
       h += '<div class="nav-section">Library · look things up</div>';
-      h += link("#/framework", "Guides: how AI engineers think");
-      h += link("#/concepts", "Core concepts (API, MCP, RAG…)");
-      h += link("#/patterns", "Pattern library");
-      h += link("#/matrix", "Pattern matrix");
-      h += link("#/glossary", "Glossary (simple words)");
+      h += link("#/framework", icon("compass") + "Guides: how AI engineers think");
+      h += link("#/concepts", icon("bulb") + "Core concepts (API, MCP, RAG…)");
+      h += link("#/patterns", icon("puzzle") + "Pattern library");
+      h += link("#/matrix", icon("grid") + "Pattern matrix");
+      h += link("#/glossary", icon("book") + "Glossary (simple words)");
       h += '<div class="nav-section">Career</div>';
-      h += link("#/skills", "Hiring & skills");
+      h += link("#/skills", icon("briefcase") + "Hiring & skills");
     }
     if (q) {
       const pats = window.PATTERNS.filter((pt) => (pt.name + " " + pt.summary).toLowerCase().includes(q));
@@ -244,11 +281,11 @@
     h += '<p class="lead">A step-by-step course that takes you from "what is an AI model?" to designing AI systems for whole companies, through 28 realistic client projects. Everything you need is explained inside the lab.</p>';
     h += '<div class="start-card">';
     if (!done) {
-      h += '<div class="k">New here? Start with step 1</div><div class="t">' + esc(stepTitle(STEPS[0])) + "</div>" +
+      h += icon("play", "big") + '<div class="k">New here? Start with step 1</div><div class="t">' + esc(stepTitle(STEPS[0])) + "</div>" +
         '<p class="muted">A 10-minute tour: what you\'ll learn, how the lab is organised, and how to study each step.</p>' +
         '<a class="btn primary" href="' + stepHref(STEPS[0]) + '">▶ Start here</a> <a class="btn" href="#/path">See the whole path</a>';
     } else if (nx) {
-      h += '<div class="k">Continue where you left off · Step ' + (nx.n + 1) + " of " + tot + " · " + esc(nx.phase.title) + '</div><div class="t">' + esc(stepTitle(nx)) + "</div>" +
+      h += icon("map", "big") + '<div class="k">Continue where you left off · Step ' + (nx.n + 1) + " of " + tot + " · " + esc(nx.phase.title) + '</div><div class="t">' + esc(stepTitle(nx)) + "</div>" +
         '<p class="muted">' + inline(nx.why) + "</p>" +
         '<div class="bar" style="margin:10px 0 14px"><span style="width:' + (100 * done) / tot + '%"></span></div>' +
         '<a class="btn primary" href="' + stepHref(nx) + '">Continue →</a> <a class="btn" href="#/path">See the whole path</a>';
@@ -256,19 +293,19 @@
       h += '<div class="k">All ' + tot + ' steps done</div><div class="t">You finished the learning path. Well done!</div><p class="muted">Use the library to revise, or redo a project with your own twist.</p><a class="btn" href="#/path">See the whole path</a>';
     }
     h += "</div>";
-    h += md(window.HOME_INTRO || "");
-    h += "<h2>The path, phase by phase</h2><p class='muted'>Like the chapters of a textbook: each phase builds on the one before. Tap one to see its steps.</p><div class='cards'>";
+    h += divider("compass") + md(window.HOME_INTRO || "");
+    h += divider("map") + "<h2>" + icon("map", "h") + "The path, phase by phase</h2><p class='muted'>Like the chapters of a textbook: each phase builds on the one before. Tap one to see its steps.</p><div class='cards'>";
     (window.PATH || []).forEach((ph, i) => {
       const st = STEPS.filter((s) => s.phase === ph);
       const d = st.filter(stepDone).length;
-      h += '<a class="card' + (d === st.length ? " done" : "") + '" href="#/path?s=' + ph.id + '"><div class="k">Phase ' + (i + 1) + " · " + d + "/" + st.length + " done</div><div class='t'>" + esc(ph.title) + "</div><div class='s'>" + esc(ph.goal) + "</div></a>";
+      h += '<a class="card' + (d === st.length ? " done" : "") + '" href="#/path?s=' + ph.id + '"><div class="card-ico">' + icon(PHASE_ICON[ph.id]) + '</div><div class="k">Phase ' + (i + 1) + " · " + d + "/" + st.length + " done</div><div class='t'>" + esc(ph.title) + "</div><div class='s'>" + esc(ph.goal) + "</div></a>";
     });
     h += "</div>";
     return h;
   }
 
   function stepBanner(s) {
-    return '<div class="path-banner"><a href="#/path?s=' + s.phase.id + '">Learning path</a> · Phase ' + s.phaseNo + ": " + esc(s.phase.title) +
+    return '<div class="path-banner">' + icon(KIND_ICON[s.kind]) + '<a href="#/path?s=' + s.phase.id + '">Learning path</a> · Phase ' + s.phaseNo + ": " + esc(s.phase.title) +
       " · <strong>Step " + (s.n + 1) + " of " + STEPS.length + "</strong>" + (stepDone(s) ? ' <span class="done">✓ done</span>' : "") +
       '<div class="why"><span class="simple-tag">Why this comes now</span> ' + inline(s.why) + "</div></div>";
   }
@@ -287,18 +324,18 @@
 
   function pagePath() {
     const done = stepsDone(), tot = STEPS.length, nx = nextStep();
-    let h = "<h1>Learning path</h1><p class='lead'>Every step of the lab in the order a tutor would teach it. Short lessons come right before the project that needs them, and a checkpoint ends each level.</p>" + simpleBox("page:path");
+    let h = "<h1>" + icon("map", "h1") + "Learning path</h1><p class='lead'>Every step of the lab in the order a tutor would teach it. Short lessons come right before the project that needs them, and a checkpoint ends each level.</p>" + simpleBox("page:path");
     h += '<p><strong>' + done + " of " + tot + " steps done</strong></p><div class='bar' style='margin-bottom:14px'><span style='width:" + (100 * done) / tot + "%'></span></div>";
     if (nx) h += '<p><a class="btn primary" href="' + stepHref(nx) + '">' + (done ? "Continue: " : "Start: ") + esc(stepTitle(nx)) + " →</a></p>";
     h += "<p class='muted small'>Kinds of step: <strong>Python</strong> = a short Python lesson (15–30 min). <strong>Guide</strong> and <strong>Concept</strong> = a short reading lesson (10–15 min). <strong>Project</strong> = a full client project (an afternoon to two days). <strong>Checkpoint</strong> = self-check questions.</p>";
     (window.PATH || []).forEach((ph, i) => {
       const st = STEPS.filter((s) => s.phase === ph);
       const total = st.reduce((a, s) => a + (s.minutes || 0), 0);
-      h += '<section class="phase" id="stage-' + ph.id + '"><h2>Phase ' + (i + 1) + " · " + esc(ph.title) + ' <span class="muted small">' + st.filter(stepDone).length + "/" + st.length + " · about " + fmtMin(total) + "</span></h2>";
+      h += divider(PHASE_ICON[ph.id]) + '<section class="phase" id="stage-' + ph.id + '"><h2>' + icon(PHASE_ICON[ph.id], "h") + "Phase " + (i + 1) + " · " + esc(ph.title) + ' <span class="muted small">' + st.filter(stepDone).length + "/" + st.length + " · about " + fmtMin(total) + "</span></h2>";
       h += "<p class='muted'><strong>Goal:</strong> " + esc(ph.goal) + "</p><ol class='path-list'>";
       st.forEach((s) => {
         const d = stepDone(s), cur = nx === s;
-        h += '<li class="' + (d ? "done" : "") + (cur ? " current" : "") + '"><a href="' + stepHref(s) + '"><span class="tick">' + (d ? "✓" : s.n + 1) + '</span><span class="body"><span class="kind kind-' + s.kind + '">' + KIND_LABEL[s.kind] + "</span> <strong>" + esc(stepTitle(s)) + "</strong>" +
+        h += '<li class="' + (d ? "done" : "") + (cur ? " current" : "") + '"><a href="' + stepHref(s) + '"><span class="tick">' + (d ? icon("check") : s.n + 1) + '</span><span class="body"><span class="kind kind-' + s.kind + '">' + icon(KIND_ICON[s.kind]) + KIND_LABEL[s.kind] + "</span> <strong>" + esc(stepTitle(s)) + "</strong>" +
           (cur ? ' <span class="you">← you are here</span>' : "") + ' <span class="muted small">· ' + fmtMin(s.minutes || 0) + '</span><span class="why">' + inline(s.why) + "</span></span></a></li>";
       });
       h += "</ol></section>";
@@ -319,7 +356,7 @@
   }
   function pagePython() {
     const ls = window.PYTHON_LESSONS || [];
-    let h = "<h1>Python toolkit</h1><p class='lead'>" + ls.length + " short lessons in the order a tutor would teach them: from running your first file to calling an AI model from Python.</p>" + simpleBox("page:python");
+    let h = "<h1>" + icon("code", "h1") + "Python toolkit</h1><p class='lead'>" + ls.length + " short lessons in the order a tutor would teach them: from running your first file to calling an AI model from Python.</p>" + simpleBox("page:python");
     h += md(window.PYTHON_INTRO || "");
     h += "<div class='cards'>";
     ls.forEach((l) => {
@@ -334,15 +371,15 @@
     const l = PYL[id];
     if (!l) return notFound();
     let h = '<p class="muted small"><a href="#/python">Python toolkit</a></p><h1>' + esc(l.title) + "</h1><p class='lead'>" + esc(l.summary) + "</p>" + simpleBox("python:" + id);
-    h += md(l.body);
+    h += '<div class="prose">' + md(l.body) + "</div>";
     if (l.practice && l.practice.length) {
-      h += "<h2>Practice</h2><p class='muted'>Answer in your head or on paper first, then tap to compare.</p>";
+      h += divider("target") + "<h2>" + icon("target", "h") + "Practice</h2><p class='muted'>Answer in your head or on paper first, then tap to compare.</p>";
       h += l.practice.map((qa, i) => '<details class="xd qa"><summary><strong>' + (i + 1) + ".</strong> <span>" + inline(qa.q) + '</span></summary><div class="xd-body"><span class="simple-tag">A good answer</span><p>' + inline(qa.a) + "</p></div></details>").join("");
     }
     const feats = (window.PYFEATURES || []).filter((f) => (l.features || []).includes(f.id));
     if (feats.length) {
       const uses = pyUsage()[id];
-      h += "<h2>Where you'll use this</h2><p class='muted'>This lesson's Python appears in <strong>" + uses.length + " of " + window.PROJECTS.length + "</strong> projects. Tap a feature for a one-minute reminder. Project pages link back here.</p>";
+      h += divider("briefcase") + "<h2>" + icon("briefcase", "h") + "Where you'll use this</h2><p class='muted'>This lesson's Python appears in <strong>" + uses.length + " of " + window.PROJECTS.length + "</strong> projects. Tap a feature for a one-minute reminder. Project pages link back here.</p>";
       h += '<div class="chips-row">' + feats.map((f) => '<button type="button" class="chip" data-x="py:' + f.id + '">' + inline(f.name) + "</button>").join("") + "</div>";
       if (uses.length) h += "<p class='small'>" + uses.map((p) => '<a href="#/project/' + p.id + '">' + p.code + "</a>").join(" · ") + "</p>";
     }
@@ -352,7 +389,7 @@
   function pageStart() {
     const x = window.START_PAGE;
     if (!x) return notFound();
-    return "<h1>" + esc(x.title) + "</h1><p class='lead'>" + esc(x.summary) + "</p>" + simpleBox("page:start") + md(x.body) + pathPager("page:start");
+    return "<h1>" + esc(x.title) + "</h1><p class='lead'>" + esc(x.summary) + "</p>" + simpleBox("page:start") + '<div class="prose">' + md(x.body) + "</div>" + pathPager("page:start");
   }
 
   function pageWarmup() {
@@ -365,14 +402,14 @@
     const x = (window.CHECKPOINTS || {})[id];
     if (!x) return notFound();
     let h = (LEVELS.some((l) => l.id === id) ? lvlPill(id) : "") + "<h1 style='margin-top:10px'>" + esc(x.title) + "</h1><p class='lead'>" + esc(x.summary) + "</p>" + simpleBox("check:" + id);
-    h += "<h2>Questions</h2><p class='muted'>Say your answer out loud or write it down <em>first</em>, then tap the question to compare. Being roughly right is enough.</p>";
+    h += divider("flag") + "<h2>" + icon("flag", "h") + "Questions</h2><p class='muted'>Say your answer out loud or write it down <em>first</em>, then tap the question to compare. Being roughly right is enough.</p>";
     h += x.questions.map((qa, i) => '<details class="xd qa"><summary><strong>Q' + (i + 1) + ".</strong> <span>" + inline(qa.q) + '</span></summary><div class="xd-body"><span class="simple-tag">A good answer</span><p>' + inline(qa.a) + "</p></div></details>").join("");
     const ticks = store.get("ready:" + id, {});
-    h += "<h2>You're ready to move on if…</h2><p class='muted'>Tick each one you can honestly say yes to (saved in this browser).</p><ul class='ready'>" +
+    h += divider("check") + "<h2>" + icon("check", "h") + "You're ready to move on if…</h2><p class='muted'>Tick each one you can honestly say yes to (saved in this browser).</p><ul class='ready'>" +
       x.ready.map((r, i) => '<li><label><input type="checkbox" data-ready="' + id + ":" + i + '"' + (ticks[i] ? " checked" : "") + "> <span>" + inline(r) + "</span></label></li>").join("") + "</ul>";
-    if (x.review && x.review.length) h += "<h2>Not sure yet? Re-read these first</h2><p class='muted'>These projects hold the main ideas of this level. Skim their <strong>Recap</strong> sections.</p><div class='cards'>" +
+    if (x.review && x.review.length) h += divider("repeat") + "<h2>Not sure yet? Re-read these first</h2><p class='muted'>These projects hold the main ideas of this level. Skim their <strong>Recap</strong> sections.</p><div class='cards'>" +
       x.review.map((pid) => P[pid]).filter(Boolean).map(projCard).join("") + "</div>";
-    if (x.reviewLessons && x.reviewLessons.length) h += "<h2>Not sure yet? Re-read these first</h2><p class='muted'>Each answer above names its lesson. These four matter most.</p><div class='cards'>" +
+    if (x.reviewLessons && x.reviewLessons.length) h += divider("repeat") + "<h2>Not sure yet? Re-read these first</h2><p class='muted'>Each answer above names its lesson. These four matter most.</p><div class='cards'>" +
       x.reviewLessons.map((lid) => PYL[lid]).filter(Boolean).map((l) => '<a class="card" href="#/python/' + l.id + '"><div class="t">' + esc(l.title) + '</div><div class="s">' + esc(l.summary) + "</div></a>").join("") + "</div>";
     return h + pathPager("check:" + id);
   }
@@ -656,7 +693,7 @@
     }).join("") + "</div>";
     if (p.newConcepts && p.newConcepts.length) h += '<p class="small muted" style="margin-top:10px"><strong>New here:</strong> ' + p.newConcepts.map(esc).join(" · ") + "</p>";
 
-    h += '<nav class="stage-nav">' + STAGES.map(([k, short]) => '<a href="#/project/' + id + "?s=" + k + '" data-stage="' + k + '">' + short + "</a>").join("") + "</nav>";
+    h += '<nav class="stage-nav">' + STAGES.map(([k, short]) => '<a href="#/project/' + id + "?s=" + k + '" data-stage="' + k + '">' + icon(STAGE_ICON[k]) + short + "</a>").join("") + "</nav>";
 
     STAGES.forEach(([k, short, long]) => {
       let body = "";
@@ -685,7 +722,7 @@
       }
       if (!body) return;
       const termsAttr = ["start", "recap", "practice"].includes(k) ? "" : " data-terms";
-      h += '<section class="stage"' + termsAttr + ' id="stage-' + k + '"><div class="stage-label">' + esc(short) + "</div><h2>" + esc(long) + "</h2>" + stageAnalogy(k) + body + "</section>";
+      h += divider(STAGE_ICON[k]) + '<section class="stage"' + termsAttr + ' id="stage-' + k + '"><div class="stage-label">' + icon(STAGE_ICON[k]) + esc(short) + "</div><h2>" + esc(long) + "</h2>" + stageAnalogy(k) + body + "</section>";
     });
 
     if (STEP["proj:" + id]) return h + pathPager("proj:" + id);
@@ -695,7 +732,7 @@
   }
 
   function pagePatterns() {
-    let h = "<h1>Pattern library</h1><p class='lead'>Once you can name a pattern you start seeing it everywhere. The number on each one is how many of the 28 projects use it.</p>";
+    let h = "<h1>" + icon("puzzle", "h1") + "Pattern library</h1><p class='lead'>Once you can name a pattern you start seeing it everywhere. The number on each one is how many of the 28 projects use it.</p>";
     h += md(window.PATTERNS_INTRO || "");
     h += "<h2>Words you'll need first</h2><p class='muted'>These words appear on almost every pattern page. If they're new, read them now. Each pattern page also lists its own new words before the technical part, and every word is in the <a href='#/glossary'>Glossary</a>.</p>";
     h += wordList(window.PATTERN_STARTER_WORDS || []);
@@ -718,7 +755,7 @@
     let h = '<p class="muted small"><a href="#/patterns">Pattern library</a> · ' + esc(pt.category) + "</p>";
     h += "<h1>" + esc(pt.name) + "</h1><p class='lead'>" + esc(pt.summary) + "</p>" + simpleBox("pattern:" + pt.id);
     h += deepAnalogy(pt.id);
-    h += "<hr><p class='stage-label'>The technical part</p>";
+    h += divider("wrench") + "<p class='stage-label'>" + icon("wrench") + "The technical part</p>";
     if (pt.problem) h += "<h2>The problem it solves</h2>" + md(pt.problem);
     if (pt.solution) h += "<h2>The pattern</h2>" + md(pt.solution);
     if (pt.code) h += "<h2>Minimal code</h2>" + codeBlock(pt.code, pt.lang || "python");
@@ -731,7 +768,7 @@
   }
 
   function pageMatrix() {
-    let h = "<h1>Pattern matrix</h1><p class='lead'>Rows are patterns and columns are projects. Read across a row to see one idea travel from a beginner script to an advanced platform.</p>";
+    let h = "<h1>" + icon("grid", "h1") + "Pattern matrix</h1><p class='lead'>Rows are patterns and columns are projects. Read across a row to see one idea travel from a beginner script to an advanced platform.</p>";
     const pats = window.PATTERNS.slice().sort((a, b) => usage[b.id].length - usage[a.id].length);
     h += "<div class='matrix-wrap'><table class='matrix'><thead><tr><th style='text-align:left'>Pattern</th><th>Σ</th>";
     ordered.forEach((p) => (h += "<th class='rot' title='" + esc(p.title) + "'><div><a href='#/project/" + p.id + "'>" + p.code + "</a></div></th>"));
@@ -750,7 +787,8 @@
   }
 
   function pageList(title, lead, items, base, intro) {
-    let h = "<h1>" + title + "</h1><p class='lead'>" + lead + "</p>" + md(intro || "") + "<div class='cards'>";
+    const ic = { framework: "compass", concept: "bulb", skills: "briefcase" }[base];
+    let h = "<h1>" + icon(ic, "h1") + title + "</h1><p class='lead'>" + lead + "</p>" + md(intro || "") + "<div class='cards'>";
     items.forEach((c, n) => (h += '<a class="card" href="#/' + base + "/" + c.id + '"><div class="k">' + String(n + 1).padStart(2, "0") + '</div><div class="t">' + esc(c.title) + '</div><div class="s">' + esc(c.summary) + "</div></a>"));
     return h + "</div>";
   }
@@ -760,7 +798,7 @@
     const i = list.findIndex((x) => x.id === id);
     if (i < 0) return notFound();
     const c = list[i], prev = list[i - 1], next = list[i + 1];
-    let h = '<p class="muted small"><a href="#/' + base + '">' + crumb + "</a></p><h1>" + esc(c.title) + "</h1><p class='lead'>" + esc(c.summary) + "</p>" + simpleBox(KIND[base] + ":" + c.id) + md(c.body);
+    let h = '<p class="muted small"><a href="#/' + base + '">' + crumb + "</a></p><h1>" + esc(c.title) + "</h1><p class='lead'>" + esc(c.summary) + "</p>" + simpleBox(KIND[base] + ":" + c.id) + '<div class="prose">' + md(c.body) + "</div>";
     const key = { framework: "f:", concepts: "c:", skills: "s:" }[base] + c.id;
     if (STEP[key]) return h + pathPager(key);
     h += '<div class="pager">' + (prev ? '<a href="#/' + base + "/" + prev.id + '"><div class="card"><div class="k">← Previous</div><div class="t">' + esc(prev.title) + "</div></div></a>" : "<span></span>") +
@@ -803,7 +841,7 @@
 
   function pageGlossary() {
     const items = (window.GLOSSARY || []).slice().sort((a, b) => a.term.localeCompare(b.term));
-    let h = "<h1>Glossary</h1><p class='lead'>Every piece of jargon in this lab, in plain words, with an everyday comparison. Come back here whenever a word stops you.</p>";
+    let h = "<h1>" + icon("book", "h1") + "Glossary</h1><p class='lead'>Every piece of jargon in this lab, in plain words, with an everyday comparison. Come back here whenever a word stops you.</p>";
     h += "<div class='gloss'>";
     items.forEach((g) => {
       h += "<div class='gloss-item' id='g-" + slug(g.term) + "'><h3>" + esc(g.term) + "</h3><p>" + inline(g.simple) +
