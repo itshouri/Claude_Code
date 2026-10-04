@@ -160,6 +160,7 @@
       h += link("#/patterns", "Pattern library");
       h += link("#/matrix", "Pattern matrix");
       h += link("#/skills", "Hiring & skills");
+      h += link("#/glossary", "Glossary (simple words)");
     }
     LEVELS.forEach((lvl) => {
       const items = projectsOf(lvl.id).filter((p) => !q || searchText(p).includes(q));
@@ -174,6 +175,11 @@
       if (pats.length) {
         h += '<div class="nav-section">Patterns</div>';
         pats.forEach((pt) => (h += link("#/pattern/" + pt.id, esc(pt.name))));
+      }
+      const gl = (window.GLOSSARY || []).filter((g) => (g.term + " " + g.simple).toLowerCase().includes(q));
+      if (gl.length) {
+        h += '<div class="nav-section">Glossary</div>';
+        gl.slice(0, 8).forEach((g) => (h += link("#/glossary", esc(g.term))));
       }
       if (h === "") h = '<p class="muted small" style="padding:0 8px">No matches.</p>';
     }
@@ -229,7 +235,7 @@
     const prev = ordered[idx - 1], next = ordered[idx + 1];
     let h = lvlPill(p.level) + ' <span class="muted small" style="margin-left:6px">' + p.code + "</span>";
     h += "<h1 style='margin-top:10px'>" + esc(p.title) + "</h1>";
-    h += '<p class="lead">' + esc(p.summary) + "</p>";
+    h += '<p class="lead">' + esc(p.summary) + "</p>" + simpleBox("project:" + p.id);
     h += '<div class="meta"><span>🏢 ' + esc(p.client) + "</span><span>🏷️ " + esc(p.industry) + "</span>" + (p.time ? "<span>⏱️ " + esc(p.time) + "</span>" : "") + "</div>";
     h += "<div>" + (p.patterns || []).map((pt) => {
       const first = usage[pt] && usage[pt][0] === p.id;
@@ -260,7 +266,7 @@
         body = md(p[k]);
       }
       if (!body) return;
-      h += '<section class="stage" id="stage-' + k + '"><div class="stage-label">' + esc(short) + "</div><h2>" + esc(long) + "</h2>" + body + "</section>";
+      h += '<section class="stage" id="stage-' + k + '"><div class="stage-label">' + esc(short) + "</div><h2>" + esc(long) + "</h2>" + stageAnalogy(k) + body + "</section>";
     });
 
     h += '<div class="pager">' + (prev ? '<a href="#/project/' + prev.id + '"><div class="card"><div class="k">← Previous</div><div class="t">' + esc(prev.code + " " + prev.title) + "</div></div></a>" : "<span></span>") +
@@ -286,7 +292,7 @@
     const pt = PAT[id];
     if (!pt) return notFound();
     let h = '<p class="muted small"><a href="#/patterns">Pattern library</a> · ' + esc(pt.category) + "</p>";
-    h += "<h1>" + esc(pt.name) + "</h1><p class='lead'>" + esc(pt.summary) + "</p>";
+    h += "<h1>" + esc(pt.name) + "</h1><p class='lead'>" + esc(pt.summary) + "</p>" + simpleBox("pattern:" + pt.id);
     if (pt.problem) h += "<h2>The problem it solves</h2>" + md(pt.problem);
     if (pt.solution) h += "<h2>The pattern</h2>" + md(pt.solution);
     if (pt.code) h += "<h2>Minimal code</h2>" + codeBlock(pt.code, pt.lang || "python");
@@ -323,14 +329,38 @@
     return h + "</div>";
   }
 
+  const KIND = { framework: "chapter", concepts: "concept", skills: "skill" };
   function pageDoc(list, id, base, crumb) {
     const i = list.findIndex((x) => x.id === id);
     if (i < 0) return notFound();
     const c = list[i], prev = list[i - 1], next = list[i + 1];
-    let h = '<p class="muted small"><a href="#/' + base + '">' + crumb + "</a></p><h1>" + esc(c.title) + "</h1><p class='lead'>" + esc(c.summary) + "</p>" + md(c.body);
+    let h = '<p class="muted small"><a href="#/' + base + '">' + crumb + "</a></p><h1>" + esc(c.title) + "</h1><p class='lead'>" + esc(c.summary) + "</p>" + simpleBox(KIND[base] + ":" + c.id) + md(c.body);
     h += '<div class="pager">' + (prev ? '<a href="#/' + base + "/" + prev.id + '"><div class="card"><div class="k">← Previous</div><div class="t">' + esc(prev.title) + "</div></div></a>" : "<span></span>") +
       (next ? '<a href="#/' + base + "/" + next.id + '"><div class="card" style="text-align:right"><div class="k">Next →</div><div class="t">' + esc(next.title) + "</div></div></a>" : "<span></span>") + "</div>";
     return h;
+  }
+
+  /* plain-language layer */
+  function simpleBox(key) {
+    const x = (window.SIMPLE || {})[key];
+    if (!x) return "";
+    return '<div class="simple"><div class="simple-row"><span class="simple-tag">In simple words</span><span>' + inline(x.simple) +
+      '</span></div><div class="simple-row"><span class="simple-tag">Think of it like</span><span>' + inline(x.analogy) + "</span></div></div>";
+  }
+  function stageAnalogy(k) {
+    const x = (window.SIMPLE || {})["stage:" + k];
+    return x ? '<p class="stage-analogy">' + inline(x.simple) + " <em>Like: " + inline(x.analogy) + "</em></p>" : "";
+  }
+
+  function pageGlossary() {
+    const items = (window.GLOSSARY || []).slice().sort((a, b) => a.term.localeCompare(b.term));
+    let h = "<h1>Glossary</h1><p class='lead'>Every piece of jargon in this lab, in plain words, with an everyday comparison. Come back here whenever a word stops you.</p>";
+    h += "<div class='gloss'>";
+    items.forEach((g) => {
+      h += "<div class='gloss-item' id='g-" + g.term.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "'><h3>" + esc(g.term) + "</h3><p>" + inline(g.simple) +
+        "</p><p class='muted'><em>Think of it like:</em> " + inline(g.analogy) + "</p></div>";
+    });
+    return h + "</div>";
   }
 
   const notFound = () => "<h1>Not found</h1><p><a href='#/'>Go home</a></p>";
@@ -348,6 +378,7 @@
       case "patterns": html = pagePatterns(); break;
       case "pattern": html = pagePattern(parts[1]); break;
       case "matrix": html = pageMatrix(); break;
+      case "glossary": html = pageGlossary(); break;
       case "framework": html = parts[1] ? pageDoc(window.FRAMEWORK, parts[1], "framework", "How AI engineers think") : pageList("How AI engineers think", "The mental models every project in this lab uses. Read these first, then come back to them after each level.", window.FRAMEWORK, "framework", window.FRAMEWORK_INTRO); break;
       case "concepts": html = pageList("Core concepts", "The technology choices you'll have to explain to clients and interviewers: APIs, MCP, RAG, agents, evals and the rest.", window.CONCEPTS, "concept"); break;
       case "concept": html = pageDoc(window.CONCEPTS, parts[1], "concepts", "Core concepts"); break;

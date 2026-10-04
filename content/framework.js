@@ -1,4 +1,6 @@
 window.HOME_INTRO = md`
+> **New to all this?** Every page starts with an **"In simple words"** box and an everyday comparison. Any word you don't know is in the [Glossary](#/glossary). Read the simple box first, then the details.
+
 ## How this lab works
 
 Every project is a **client engagement**: a company has a problem, hires you, and you take it from a vague brief to a system that runs, has been evaluated, and has a cost figure attached. Every project follows the same eight stages. That repetition is on purpose, because it is how working AI engineers actually operate:

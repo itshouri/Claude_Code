@@ -220,6 +220,22 @@ textarea.notes {
 .pager a { flex: 1; }
 .pager .card { height: 100%; }
 
+/* Plain-language layer */
+.simple {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-soft); padding: 12px 16px; margin: 4px 0 20px;
+  display: grid; gap: 8px;
+}
+.simple-row { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: baseline; }
+.simple-row > span:last-child { min-width: 0; }
+.simple-tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+.stage-analogy { color: var(--muted); font-size: 15px; margin-top: -4px; }
+.gloss { display: grid; gap: 4px; }
+.gloss-item { border-bottom: 1px solid var(--border); padding: 4px 0 10px; }
+.gloss-item h3 { margin: 14px 0 4px; }
+.gloss-item p { margin: 0 0 6px; }
+@media (max-width: 600px) { .simple-row { grid-template-columns: 1fr; gap: 2px; } }
+
 /* Pattern matrix */
 .matrix-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 table.matrix { display: table; margin: 0; font-size: 12px; }
