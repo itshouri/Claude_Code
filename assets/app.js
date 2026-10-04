@@ -9,6 +9,7 @@
   ];
 
   const STAGES = [
+    ["start", "0 · Before you start", "Before you start: everything this project uses"],
     ["brief", "1 · Brief", "The client brief"],
     ["discovery", "2 · Discover", "Discovery: what you ask before you build"],
     ["frame", "3 · Frame", "Frame the problem"],
@@ -17,6 +18,7 @@
     ["evaluate", "6 · Evaluate", "Evaluate it"],
     ["operate", "7 · Operate", "Ship and operate"],
     ["levelUp", "8 · Level up", "What changes at 10x"],
+    ["recap", "Recap", "What you just learned"],
     ["practice", "Practice", "Practice and interview prep"],
   ];
 
@@ -73,11 +75,11 @@
     if (kind === "p") {
       const pt = PAT[id];
       if (!pt) return "<code>" + esc(id) + "</code>";
-      return '<a class="chip" href="#/pattern/' + id + '">' + esc(pt.name) + '<span class="count">×' + usage[id].length + "</span></a>";
+      return '<a class="chip" data-x="p:' + id + '" href="#/pattern/' + id + '">' + esc(pt.name) + '<span class="count">×' + usage[id].length + "</span></a>";
     }
     if (kind === "proj") { const p = P[id]; return p ? '<a href="#/project/' + id + '">' + esc(p.code + " " + p.title) + "</a>" : esc(id); }
-    if (kind === "c") { const c = CON[id]; return c ? '<a href="#/concept/' + id + '">' + esc(c.title) + "</a>" : esc(id); }
-    if (kind === "f") { const c = FW[id]; return c ? '<a href="#/framework/' + id + '">' + esc(c.title) + "</a>" : esc(id); }
+    if (kind === "c") { const c = CON[id]; return c ? '<a data-x="c:' + id + '" href="#/concept/' + id + '">' + esc(c.title) + "</a>" : esc(id); }
+    if (kind === "f") { const c = FW[id]; return c ? '<a data-x="f:' + id + '" href="#/framework/' + id + '">' + esc(c.title) + "</a>" : esc(id); }
     if (kind === "s") { const c = SK[id]; return c ? '<a href="#/skills/' + id + '">' + esc(c.title) + "</a>" : esc(id); }
     return esc(id);
   }
@@ -228,6 +230,251 @@
     return h;
   }
 
+  /* ================= All-in-one project view ================= */
+
+  // --- detection helpers -------------------------------------------------
+  const stripComments = (code) => code.split("\n").map((l) => l.replace(/(^|\s)#(?!!).*$/, "")).join("\n");
+  const isPy = (step) => (step.lang || "python") === "python";
+  const techOf = (step) => (window.TECH || []).filter((t) => t.detect.test(step.code || "") || (t.langs || []).includes(step.lang));
+  const pyOf = (step) => (isPy(step) ? (window.PYFEATURES || []).filter((f) => f.detect.test(stripComments(step.code || ""))) : []);
+  const TECH_BY = () => Object.fromEntries((window.TECH || []).map((t) => [t.id, t]));
+  const PY_BY = () => Object.fromEntries((window.PYFEATURES || []).map((f) => [f.id, f]));
+
+  function projectText(p) {
+    const parts = ["brief", "discovery", "frame", "design", "evaluate", "operate", "levelUp", "interview", "buildIntro"].map((k) => p[k] || "");
+    (p.build || []).forEach((s) => parts.push(s.note || "", s.after || ""));
+    (p.exercises || []).forEach((e) => parts.push(e));
+    return parts.join("\n");
+  }
+  function refsIn(text, kind) {
+    const out = [];
+    text.replace(new RegExp("\\[\\[" + kind + ":([a-z0-9-]+)\\]\\]", "g"), (_, id) => { if (!out.includes(id)) out.push(id); });
+    return out;
+  }
+
+  // --- glossary term matching (for tap-to-explain words) ------------------
+  const TERM_EXCLUDE = new Set(["State", "Client", "Index", "Budget (steps, tokens, money)", "Draft", "Feedback",
+    "Effort / thinking", "Agent", "Worker", "Critic", "Throughput", "Router", "Handler", "Ranking", "Module"]);
+  const TERM_ALIASES = {
+    "Tool / function calling": ["tool calling", "function calling", "tool use"],
+    "Human in the loop": ["human in the loop", "human-in-the-loop", "human review"],
+    "Unique key / ID": ["unique key", "unique ID"],
+    "Loop / iteration": ["iteration"],
+    "Evaluation (eval)": ["evaluation", "eval", "evals"],
+    "Logging": ["logging", "logs"],
+    "Confidence score": ["confidence score", "confidence"],
+    "Parallel processing": ["parallel"],
+    "Batch processing": ["batch processing", "Batches API", "batch"],
+    "Untrusted input": ["untrusted"],
+    "Exponential backoff": ["backoff"],
+    "Accuracy / precision / recall": ["accuracy", "precision", "recall"],
+    "Citation / grounding": ["citation", "citations", "grounded", "grounding"],
+    "Observability / tracing": ["observability", "tracing"],
+  };
+  let TERM_INDEX = null;
+  function termIndex() {
+    if (TERM_INDEX) return TERM_INDEX;
+    const rows = [];
+    (window.GLOSSARY || []).forEach((g) => {
+      if (TERM_EXCLUDE.has(g.term)) return;
+      const aliases = TERM_ALIASES[g.term] ||
+        g.term.replace(/\(([^)]+)\)/, " / $1").split(" / ").map((s) => s.trim()).filter(Boolean);
+      aliases.forEach((a) => {
+        const acronym = /^[A-Z0-9]{2,5}$/.test(a);
+        const src = "(^|[^A-Za-z0-9_])(" + a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "[\\s-]+") + (acronym ? "s?" : "(?:s|es)?") + ")(?![A-Za-z0-9_])";
+        rows.push({ term: g.term, alias: a, re: new RegExp(src, acronym ? "" : "i") });
+      });
+    });
+    rows.sort((a, b) => b.alias.length - a.alias.length);
+    return (TERM_INDEX = rows);
+  }
+  function termsInText(text) {
+    const plain = text.replace(/~~~[\s\S]*?~~~/g, " ").replace(/~[^~\n]+~/g, " ").replace(/\[\[[^\]]+\]\]/g, " ");
+    const found = [];
+    termIndex().forEach((r) => {
+      const m = r.re.exec(plain);
+      if (m && !found.some((f) => f.term === r.term)) found.push({ term: r.term, at: m.index });
+    });
+    return found.sort((a, b) => a.at - b.at).map((f) => f.term);
+  }
+
+  // --- inline explanation cards -------------------------------------------
+  function patternCard(id, full) {
+    const pt = PAT[id], d = (window.PATTERN_DEEP || {})[id], s = (window.SIMPLE || {})["pattern:" + id];
+    if (!pt) return "";
+    let h = s ? "<p><strong>In simple words:</strong> " + inline(s.simple) + "</p><p><strong>Think of it like:</strong> " + inline(s.analogy) + "</p>" : "";
+    if (d) {
+      h += "<p class='xsub'>The real-life story</p><ol class='story'>" + d.story.map((x) => "<li>" + inline(x) + "</li>").join("") + "</ol>";
+      h += "<table><thead><tr><th>In real life</th><th>In the AI system</th></tr></thead><tbody>" +
+        d.mapping.map(([a, b]) => "<tr><td>" + inline(a) + "</td><td>" + inline(b) + "</td></tr>").join("") + "</tbody></table>";
+      h += "<p><strong>Why it works:</strong> " + inline(d.why) + "</p><p><strong>Where the comparison stops:</strong> " + inline(d.breaks) + "</p>";
+    }
+    if (full) {
+      h += "<details class='xd inner'><summary>Technical details and minimal code</summary>" + md(pt.solution) + (pt.code ? codeBlock(pt.code, "python") : "") +
+        (pt.pitfalls ? "<p class='xsub'>Pitfalls</p>" + md(pt.pitfalls) : "") + "</details>";
+    }
+    return h;
+  }
+  function docCard(kind, id, withBody) {
+    const c = kind === "c" ? CON[id] : FW[id];
+    const s = (window.SIMPLE || {})[(kind === "c" ? "concept:" : "chapter:") + id];
+    if (!c) return "";
+    let h = s ? "<p><strong>In simple words:</strong> " + inline(s.simple) + "</p><p><strong>Think of it like:</strong> " + inline(s.analogy) + "</p>" : "<p>" + esc(c.summary) + "</p>";
+    if (withBody) h += "<details class='xd inner'><summary>Read the full explanation here</summary>" + md(c.body) + "</details>";
+    return h;
+  }
+  function techCard(t) {
+    return "<p>" + inline(t.simple) + "</p><p><strong>Think of it like:</strong> " + inline(t.analogy) + "</p>";
+  }
+  function pyCard(f) {
+    return "<p>" + inline(f.simple) + "</p><p><strong>Think of it like:</strong> " + inline(f.analogy) + "</p>" +
+      (f.example ? "<p class='xsub'>Tiny example</p>" + codeBlock(f.example, "python") : "");
+  }
+  function xcardBody(key) {
+    const i = key.indexOf(":"), kind = key.slice(0, i), id = key.slice(i + 1);
+    if (kind === "g") {
+      const g = (window.GLOSSARY || []).find((x) => x.term === id);
+      return g ? { title: g.term, html: "<p>" + inline(g.simple) + "</p><p><strong>Think of it like:</strong> " + inline(g.analogy) + "</p>", link: "#/glossary/" + slug(g.term) } : null;
+    }
+    if (kind === "p" && PAT[id]) return { title: PAT[id].name, html: patternCard(id, true), link: "#/pattern/" + id };
+    if (kind === "c" && CON[id]) return { title: CON[id].title, html: docCard("c", id, true), link: "#/concept/" + id };
+    if (kind === "f" && FW[id]) return { title: FW[id].title, html: docCard("f", id, true), link: "#/framework/" + id };
+    if (kind === "t") { const t = TECH_BY()[id]; return t ? { title: t.name, html: techCard(t) } : null; }
+    if (kind === "py") { const f = PY_BY()[id]; return f ? { title: f.name, html: pyCard(f) } : null; }
+    return null;
+  }
+  function toggleXcard(trigger) {
+    const key = trigger.dataset.x;
+    const block = trigger.closest("li, p, td, blockquote, .file-head, .chips-row, dd, .simple-row") || trigger.parentElement;
+    const anchor = block.tagName === "TD" ? block.closest("table") : block;
+    const next = anchor.nextElementSibling;
+    if (next && next.classList.contains("xcard") && next.dataset.key === key) { next.remove(); trigger.classList.remove("open"); return; }
+    if (next && next.classList.contains("xcard")) next.remove();
+    const body = xcardBody(key);
+    if (!body) return;
+    const card = document.createElement("div");
+    card.className = "xcard";
+    card.dataset.key = key;
+    card.innerHTML = "<div class='xcard-head'><strong>" + inline(body.title) + "</strong><button type='button' class='xclose' aria-label='Close'>✕</button></div>" +
+      body.html + (body.link ? "<p class='small'><a href='" + body.link + "'>Open its full page →</a></p>" : "");
+    anchor.insertAdjacentElement("afterend", card);
+    trigger.classList.add("open");
+    card.querySelector(".xclose").addEventListener("click", () => { card.remove(); trigger.classList.remove("open"); });
+    if (window.hljs) card.querySelectorAll("pre code").forEach((el) => { try { window.hljs.highlightElement(el); } catch (e) { /* ignore */ } });
+  }
+
+  // wrap the first occurrence of each glossary term per stage in a tap-to-explain button
+  function markTerms(root) {
+    const idx = termIndex();
+    root.querySelectorAll(".stage[data-terms]").forEach((sec) => {
+      const used = new Set();
+      const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => (n.parentElement.closest("pre, code, a, button, h1, h2, h3, h4, .stage-label, .stage-analogy, .xcard, .simple, th, .file-head, .walk, .chips-row")
+          ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      });
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node) => {
+        let text = node.nodeValue, best = null;
+        idx.forEach((r) => {
+          if (used.has(r.term)) return;
+          const m = r.re.exec(text);
+          if (m) { const at = m.index + m[1].length; if (!best || at < best.at) best = { at, len: m[2].length, term: r.term }; }
+        });
+        if (!best) return;
+        used.add(best.term);
+        const span = document.createElement("span");
+        span.innerHTML = esc(text.slice(0, best.at)) + "<button type='button' class='term' data-x='g:" + esc(best.term) + "'>" +
+          esc(text.slice(best.at, best.at + best.len)) + "</button>" + esc(text.slice(best.at + best.len));
+        node.parentNode.replaceChild(span, node);
+      });
+    });
+  }
+
+  // --- the project page ----------------------------------------------------
+  function beforeYouStart(p) {
+    const text = projectText(p);
+    const steps = p.build || [];
+    const techUse = {}, pyUse = {};
+    steps.forEach((s, n) => {
+      techOf(s).forEach((t) => (techUse[t.id] = (techUse[t.id] || []).concat(n)));
+      pyOf(s).forEach((f) => (pyUse[f.id] = (pyUse[f.id] || []).concat(n)));
+    });
+    const stepName = (n) => "Step " + (n + 1) + " (" + esc(steps[n].file) + ")";
+    const d = (summary, body, open) => "<details class='xd'" + (open ? " open" : "") + "><summary>" + summary + "</summary><div class='xd-body'>" + body + "</div></details>";
+    let h = "<p>Everything this project uses is explained <strong>on this page</strong>. Open what's new to you and skip what you know. In the stages below, any <button type='button' class='term demo' tabindex='-1'>underlined word</button> can be tapped for a quick explanation, and pattern or guide links open right where you are.</p>";
+
+    h += "<h3>A. The patterns: reusable ideas this project is built from</h3>";
+    h += (p.patterns || []).map((id) => {
+      const s = (window.SIMPLE || {})["pattern:" + id];
+      return d("<strong>" + esc(PAT[id].name) + "</strong>" + (s ? "<span class='xd-like'>Like: " + inline(s.analogy) + "</span>" : ""), patternCard(id, true));
+    }).join("");
+
+    const cs = refsIn(text, "c"), fs = refsIn(text, "f");
+    if (cs.length || fs.length) {
+      h += "<h3>B. Ideas from the guides this project relies on</h3>";
+      h += fs.map((id) => d("<strong>" + esc(FW[id].title) + "</strong>" + ((window.SIMPLE || {})["chapter:" + id] ? "<span class='xd-like'>Like: " + inline(window.SIMPLE["chapter:" + id].analogy) + "</span>" : ""), docCard("f", id, true))).join("");
+      h += cs.map((id) => d("<strong>" + esc(CON[id].title) + "</strong>" + ((window.SIMPLE || {})["concept:" + id] ? "<span class='xd-like'>Like: " + inline(window.SIMPLE["concept:" + id].analogy) + "</span>" : ""), docCard("c", id, true))).join("");
+    }
+
+    const T = TECH_BY();
+    const techIds = Object.keys(techUse);
+    if (techIds.length) {
+      h += "<h3>C. Technology used: libraries, services and AI features</h3>";
+      const kinds = ["AI platform", "Integration", "Library", "Infrastructure", "Python standard library"];
+      techIds.sort((a, b) => kinds.indexOf(T[a].kind) - kinds.indexOf(T[b].kind));
+      h += techIds.map((id) => d("<strong>" + inline(T[id].name) + "</strong><span class='xd-like'>" + esc(T[id].kind) + "</span>",
+        techCard(T[id]) + "<p class='small muted'>Used in: " + techUse[id].map(stepName).join(", ") + "</p>")).join("");
+    }
+
+    const F = PY_BY();
+    const pyIds = (window.PYFEATURES || []).map((f) => f.id).filter((id) => pyUse[id]);
+    if (pyIds.length) {
+      h += "<h3>D. Python you'll see in the code</h3><p class='muted small'>Every Python feature the code below uses, in the order a beginner usually learns them. Each step's code also lists its own features.</p>";
+      h += pyIds.map((id) => d("<strong>" + inline(F[id].name) + "</strong><span class='xd-like'>" + pyUse[id].length + (pyUse[id].length === 1 ? " step" : " steps") + "</span>",
+        pyCard(F[id]) + "<p class='small muted'>Used in: " + pyUse[id].map(stepName).join(", ") + "</p>")).join("");
+    }
+
+    const words = termsInText(text + "\n" + (window.SIMPLE["project:" + p.id] || {}).simple);
+    if (words.length) h += "<h3>E. Words to know</h3><p class='muted small'>Technical words that appear in this project, in the order you'll meet them.</p>" + wordList(words);
+    return h;
+  }
+
+  function stepExtras(p, step, n) {
+    let h = "";
+    const walk = (window.WALK || {})[p.id + ":" + n];
+    if (walk && walk.length) h += "<div class='walk'><p class='walk-title'>The code in plain words</p><ol>" + walk.map((w) => "<li>" + inline(w) + "</li>").join("") + "</ol></div>";
+    const py = pyOf(step), tech = techOf(step);
+    if (tech.length) h += "<div class='chips-row'><span class='simple-tag'>Technology here</span>" + tech.map((t) => "<button type='button' class='chip' data-x='t:" + t.id + "'>" + inline(t.name) + "</button>").join("") + "</div>";
+    if (py.length) h += "<div class='chips-row'><span class='simple-tag'>Python used here</span>" + py.map((f) => "<button type='button' class='chip' data-x='py:" + f.id + "'>" + inline(f.name) + "</button>").join("") + "</div>";
+    return h;
+  }
+
+  function recap(p) {
+    const steps = p.build || [];
+    const tech = [...new Set(steps.flatMap((s) => techOf(s).map((t) => t.id)))];
+    const py = [...new Set(steps.flatMap((s) => pyOf(s).map((f) => f.id)))];
+    const T = TECH_BY(), F = PY_BY();
+    let h = "<p>Here's everything you met in this project. If you can explain each line below in your own words, you understood the project.</p>";
+    h += "<h3>Patterns you used</h3><ul>" + (p.patterns || []).map((id) => {
+      const s = (window.SIMPLE || {})["pattern:" + id];
+      const files = steps.filter((st) => (st.patterns || []).includes(id)).map((st) => "~" + st.file.split(" ")[0] + "~");
+      return "<li><button type='button' class='chip' data-x='p:" + id + "'>" + esc(PAT[id].name) + "</button> " + (s ? inline(s.analogy) : "") +
+        (files.length ? " <span class='muted small'>Where: " + inline(files.join(", ")) + "</span>" : "") + "</li>";
+    }).join("") + "</ul>";
+    if (tech.length) h += "<h3>Technology you met</h3><div class='chips-row'>" + tech.map((id) => "<button type='button' class='chip' data-x='t:" + id + "'>" + inline(T[id].name) + "</button>").join("") + "</div>";
+    if (py.length) h += "<h3>Python you practised</h3><div class='chips-row'>" + py.map((id) => "<button type='button' class='chip' data-x='py:" + id + "'>" + inline(F[id].name) + "</button>").join("") + "</div>";
+    h += "<h3>Explain it back (say these out loud)</h3><ol>";
+    h += "<li>In two sentences, what problem did the client have, and how did you measure success?</li>";
+    (p.patterns || []).slice(0, 4).forEach((id) => {
+      const s = (window.SIMPLE || {})["pattern:" + id];
+      h += "<li>Explain <strong>" + esc(PAT[id].name) + "</strong> using its everyday comparison" + (s ? " (" + inline(s.analogy.replace(/\.$/, "")) + ")" : "") + ", then point to where it happens in this project's code.</li>";
+    });
+    h += "<li>Pick one code step and read it line by line, saying what each part does. Use the plain-words list under that step to check yourself.</li>";
+    h += "<li>What is the most likely way this system could fail, and how would you notice?</li></ol>";
+    return h;
+  }
+
   function pageProject(id) {
     const p = P[id];
     if (!p) return notFound();
@@ -254,8 +501,13 @@
           body += '<div class="file-head"><strong>Step ' + (n + 1) + " · " + esc(step.file) + "</strong>" + (step.patterns ? step.patterns.map((x) => ref("p", x)).join("") : "") + "</div>";
           if (step.note) body += md(step.note);
           if (step.code) body += codeBlock(step.code, step.lang || "python");
+          body += stepExtras(p, step, n);
           if (step.after) body += md(step.after);
         });
+      } else if (k === "start") {
+        body = beforeYouStart(p);
+      } else if (k === "recap") {
+        body = recap(p);
       } else if (k === "practice") {
         if (p.exercises && p.exercises.length) body += "<h3>Exercises</h3><ol>" + p.exercises.map((e) => "<li>" + inline(e) + "</li>").join("") + "</ol>";
         if (p.interview) body += "<h3>How to talk about this in an interview</h3>" + md(p.interview);
@@ -266,7 +518,8 @@
         body = md(p[k]);
       }
       if (!body) return;
-      h += '<section class="stage" id="stage-' + k + '"><div class="stage-label">' + esc(short) + "</div><h2>" + esc(long) + "</h2>" + stageAnalogy(k) + body + "</section>";
+      const termsAttr = ["start", "recap", "practice"].includes(k) ? "" : " data-terms";
+      h += '<section class="stage"' + termsAttr + ' id="stage-' + k + '"><div class="stage-label">' + esc(short) + "</div><h2>" + esc(long) + "</h2>" + stageAnalogy(k) + body + "</section>";
     });
 
     h += '<div class="pager">' + (prev ? '<a href="#/project/' + prev.id + '"><div class="card"><div class="k">← Previous</div><div class="t">' + esc(prev.code + " " + prev.title) + "</div></div></a>" : "<span></span>") +
@@ -425,6 +678,7 @@
   }
 
   function enhance() {
+    if (location.hash.startsWith("#/project/")) markTerms(main);
     if (window.hljs) main.querySelectorAll("pre code").forEach((el) => {
       if (!/language-(text|txt)$/.test(el.className)) { try { window.hljs.highlightElement(el); } catch (e) { /* ignore */ } }
     });
@@ -452,6 +706,18 @@
       const y = window.scrollY; route(); window.scrollTo(0, y);
     });
   }
+
+  // tap-to-explain: words everywhere; pattern/guide links too while reading a project
+  main.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-x]");
+    if (!t || !main.contains(t)) return;
+    const kind = t.dataset.x.split(":")[0];
+    const onProject = location.hash.startsWith("#/project/");
+    if (kind === "g" || kind === "t" || kind === "py" || onProject) {
+      e.preventDefault();
+      toggleXcard(t);
+    }
+  });
 
   $("#search").addEventListener("input", (e) => renderNav(e.target.value));
   $("#open-nav").addEventListener("click", () => $("#sidebar").classList.add("open"));

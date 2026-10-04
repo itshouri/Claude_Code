@@ -1,6 +1,12 @@
 window.HOME_INTRO = md`
 > **New to all this?** Every page starts with an **"In simple words"** box and an everyday comparison. Any word you don't know is in the [Glossary](#/glossary). Read the simple box first, then the details.
 
+> **Every project is all-in-one.** You never need to leave a project page:
+> - **0 · Before you start** explains every pattern, guide idea, technology, Python feature and technical word the project uses.
+> - In the text, *underlined words* and pattern or guide links open their explanation right where you are.
+> - Under every piece of code, **"The code in plain words"** walks through it part by part, and **"Python used here"** explains each language feature with a tiny example.
+> - **Recap** at the end lists what you learned and gives you questions to explain it back.
+
 ## How this lab works
 
 Every project is a **client engagement**: a company has a problem, hires you, and you take it from a vague brief to a system that runs, has been evaluated, and has a cost figure attached. Every project follows the same eight stages. That repetition is on purpose, because it is how working AI engineers actually operate:

@@ -19,6 +19,8 @@ Every project follows the same eight stages, so the way of working becomes a hab
 | **Advanced (8)** | Permission-aware enterprise RAG, durable claims workflow, multi-agent research, a company LLM platform, an incident agent, a prompt-injection-hardened agent, an eval flywheel, and a capstone AI strategy for a whole company |
 | **Hiring & skills** | The skills worth your time, beginner vs solid vs senior, portfolio advice, the 2026 toolbox, a 12-week plan |
 
+Every project page is **all-in-one**: a "Before you start" section explains every pattern, guide idea, technology, Python feature and technical word the project uses. Technical words in the text are tap-to-explain. Every code step has a plain-words walkthrough plus a list of the Python features it uses, and each project ends with a recap. Beginners never need to leave the page.
+
 Progress tracking and per-project notes are saved in your browser.
 
 ## Run it
@@ -46,6 +48,10 @@ content/framework.js    # "How AI engineers think" chapters + intros
 content/concepts.js     # core concepts
 content/patterns.js     # pattern library
 content/skills.js       # hiring & skills pages
+content/simple.js       # plain-words explanations + analogies for every page, and the glossary
+content/patterns-explained.js  # real-life stories for every pattern + more glossary words
+content/tech.js         # technologies and Python features, detected automatically from the code
+content/walkthroughs-*.js      # "the code in plain words" for every build step
 content/projects/*.js   # one file per project (b01–b10, i01–i10, a01–a08)
 ```
 

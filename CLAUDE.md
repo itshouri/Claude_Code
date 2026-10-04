@@ -8,3 +8,7 @@
   `GLOSSARY` entry there. Add these whenever you add content.
 - Every pattern also has a step-by-step real-life story in `content/patterns-explained.js`
   (`PATTERN_DEEP[id] = { story, mapping, why, breaks, words }`). `words` must name existing `GLOSSARY` terms.
+- Project pages are all-in-one. When adding or changing a project's code step, also update its walkthrough
+  in `content/walkthroughs-*.js` (`WALK["<project>:<step index>"] = [...]`, plain words, top to bottom).
+  Technologies and Python features are detected automatically from code via `content/tech.js`
+  (`TECH`, `PYFEATURES`); add an entry there when code uses a new library or language feature.
