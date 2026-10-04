@@ -6,3 +6,5 @@
 - Platform content follows the same rule: every project, pattern, concept, chapter and skill page has an
   entry in `content/simple.js` (`SIMPLE["<kind>:<id>"] = { simple, analogy }`), and new jargon gets a
   `GLOSSARY` entry there. Add these whenever you add content.
+- Every pattern also has a step-by-step real-life story in `content/patterns-explained.js`
+  (`PATTERN_DEEP[id] = { story, mapping, why, breaks, words }`). `words` must name existing `GLOSSARY` terms.

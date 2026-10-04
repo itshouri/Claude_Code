@@ -236,6 +236,19 @@ textarea.notes {
 .gloss-item p { margin: 0 0 6px; }
 @media (max-width: 600px) { .simple-row { grid-template-columns: 1fr; gap: 2px; } }
 
+ol.story li { margin: 8px 0; }
+.logic { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 20px; }
+.logic > div { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; min-width: 0; }
+.logic p { margin: 6px 0 0; }
+.warn-tag { color: var(--muted); }
+dl.words { margin: 0 0 18px; display: grid; gap: 0; }
+.word { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.word dt { font-weight: 600; }
+.word dd { margin: 2px 0 0; }
+.card .like { margin-top: 6px; font-size: 13px; }
+.gloss-item.flash { background: var(--accent-soft); border-radius: 8px; padding-left: 8px; }
+@media (max-width: 600px) { .logic { grid-template-columns: 1fr; } }
+
 /* Pattern matrix */
 .matrix-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 table.matrix { display: table; margin: 0; font-size: 12px; }

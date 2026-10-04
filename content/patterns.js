@@ -1,5 +1,5 @@
 window.PATTERNS_INTRO = md`
-> **How to use this page:** pick a pattern, read its minimal code, then open two projects from different industries that use it. Notice that the code barely changes between them. Only the schema, the prompt and the guards change. Seeing that is what lets experienced engineers design new systems quickly.
+> **How to use this page:** pick a pattern, read its real-life story and new words first, then its minimal code, then open two projects from different industries that use it. Notice that the code barely changes between them. Only the schema, the prompt and the guards change. Seeing that is what lets experienced engineers design new systems quickly.
 `;
 
 /* ───────────── Foundations ───────────── */

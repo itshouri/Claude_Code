@@ -179,7 +179,7 @@
       const gl = (window.GLOSSARY || []).filter((g) => (g.term + " " + g.simple).toLowerCase().includes(q));
       if (gl.length) {
         h += '<div class="nav-section">Glossary</div>';
-        gl.slice(0, 8).forEach((g) => (h += link("#/glossary", esc(g.term))));
+        gl.slice(0, 8).forEach((g) => (h += link("#/glossary/" + slug(g.term), esc(g.term))));
       }
       if (h === "") h = '<p class="muted small" style="padding:0 8px">No matches.</p>';
     }
@@ -277,11 +277,15 @@
   function pagePatterns() {
     let h = "<h1>Pattern library</h1><p class='lead'>Once you can name a pattern you start seeing it everywhere. The number on each one is how many of the 28 projects use it.</p>";
     h += md(window.PATTERNS_INTRO || "");
+    h += "<h2>Words you'll need first</h2><p class='muted'>These words appear on almost every pattern page. If they're new, read them now. Each pattern page also lists its own new words before the technical part, and every word is in the <a href='#/glossary'>Glossary</a>.</p>";
+    h += wordList(window.PATTERN_STARTER_WORDS || []);
+    h += "<h2>How to read a pattern page</h2><ol><li><strong>In simple words</strong>: the idea in one or two sentences.</li><li><strong>The real-life story</strong>: the same idea happening in everyday life, step by step.</li><li><strong>How the story matches the system</strong>: a table pairing each real-life part with its technical part.</li><li><strong>Why it works / where it stops working</strong>: so the analogy helps without misleading you.</li><li><strong>New words</strong>, then the technical details and code.</li></ol>";
     const cats = [...new Set(window.PATTERNS.map((p) => p.category))];
     cats.forEach((cat) => {
       h += "<h2>" + esc(cat) + "</h2><div class='cards'>";
       window.PATTERNS.filter((p) => p.category === cat).forEach((pt) => {
-        h += '<a class="card" href="#/pattern/' + pt.id + '"><div class="k">used in ' + usage[pt.id].length + ' projects</div><div class="t">' + esc(pt.name) + '</div><div class="s">' + esc(pt.summary) + "</div></a>";
+        h += '<a class="card" href="#/pattern/' + pt.id + '"><div class="k">used in ' + usage[pt.id].length + ' projects</div><div class="t">' + esc(pt.name) + '</div><div class="s">' + esc(pt.summary) + "</div>" +
+          (window.SIMPLE && window.SIMPLE["pattern:" + pt.id] ? '<div class="s like"><em>Like:</em> ' + inline(window.SIMPLE["pattern:" + pt.id].analogy) + "</div>" : "") + "</a>";
       });
       h += "</div>";
     });
@@ -293,6 +297,8 @@
     if (!pt) return notFound();
     let h = '<p class="muted small"><a href="#/patterns">Pattern library</a> · ' + esc(pt.category) + "</p>";
     h += "<h1>" + esc(pt.name) + "</h1><p class='lead'>" + esc(pt.summary) + "</p>" + simpleBox("pattern:" + pt.id);
+    h += deepAnalogy(pt.id);
+    h += "<hr><p class='stage-label'>The technical part</p>";
     if (pt.problem) h += "<h2>The problem it solves</h2>" + md(pt.problem);
     if (pt.solution) h += "<h2>The pattern</h2>" + md(pt.solution);
     if (pt.code) h += "<h2>Minimal code</h2>" + codeBlock(pt.code, pt.lang || "python");
@@ -352,12 +358,33 @@
     return x ? '<p class="stage-analogy">' + inline(x.simple) + " <em>Like: " + inline(x.analogy) + "</em></p>" : "";
   }
 
+  const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  function glossaryEntry(term) { return (window.GLOSSARY || []).find((g) => g.term === term); }
+  function wordList(terms) {
+    const rows = terms.map(glossaryEntry).filter(Boolean);
+    if (!rows.length) return "";
+    return "<dl class='words'>" + rows.map((g) =>
+      "<div class='word'><dt><a href='#/glossary/" + slug(g.term) + "'>" + esc(g.term) + "</a></dt><dd>" + inline(g.simple) +
+      " <span class='muted'><em>Like:</em> " + inline(g.analogy) + "</span></dd></div>").join("") + "</dl>";
+  }
+  function deepAnalogy(id) {
+    const d = (window.PATTERN_DEEP || {})[id];
+    if (!d) return "";
+    let h = "<h2>The real-life story</h2><ol class='story'>" + d.story.map((x) => "<li>" + inline(x) + "</li>").join("") + "</ol>";
+    h += "<h3>How the story matches the system</h3><table><thead><tr><th>In real life</th><th>In the AI system</th></tr></thead><tbody>" +
+      d.mapping.map(([a, b]) => "<tr><td>" + inline(a) + "</td><td>" + inline(b) + "</td></tr>").join("") + "</tbody></table>";
+    h += "<div class='logic'><div><span class='simple-tag'>Why the analogy works</span><p>" + inline(d.why) + "</p></div>" +
+      "<div><span class='simple-tag warn-tag'>Where the analogy stops working</span><p>" + inline(d.breaks) + "</p></div></div>";
+    if (d.words && d.words.length) h += "<h2>New words on this page</h2><p class='muted small'>Read these before the technical part below. Each one links to the full Glossary.</p>" + wordList(d.words);
+    return h;
+  }
+
   function pageGlossary() {
     const items = (window.GLOSSARY || []).slice().sort((a, b) => a.term.localeCompare(b.term));
     let h = "<h1>Glossary</h1><p class='lead'>Every piece of jargon in this lab, in plain words, with an everyday comparison. Come back here whenever a word stops you.</p>";
     h += "<div class='gloss'>";
     items.forEach((g) => {
-      h += "<div class='gloss-item' id='g-" + g.term.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "'><h3>" + esc(g.term) + "</h3><p>" + inline(g.simple) +
+      h += "<div class='gloss-item' id='g-" + slug(g.term) + "'><h3>" + esc(g.term) + "</h3><p>" + inline(g.simple) +
         "</p><p class='muted'><em>Think of it like:</em> " + inline(g.analogy) + "</p></div>";
     });
     return h + "</div>";
@@ -389,7 +416,8 @@
     renderNav($("#search").value);
     enhance();
     const stage = new URLSearchParams(query || "").get("s");
-    if (stage && $("#stage-" + stage)) $("#stage-" + stage).scrollIntoView();
+    if (parts[0] === "glossary" && parts[1] && $("#g-" + parts[1])) { $("#g-" + parts[1]).scrollIntoView(); $("#g-" + parts[1]).classList.add("flash"); }
+    else if (stage && $("#stage-" + stage)) $("#stage-" + stage).scrollIntoView();
     else window.scrollTo(0, 0);
     $("#sidebar").classList.remove("open");
     const t = $("h1", main);
