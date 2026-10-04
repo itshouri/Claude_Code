@@ -12,3 +12,7 @@
   in `content/walkthroughs-*.js` (`WALK["<project>:<step index>"] = [...]`, plain words, top to bottom).
   Technologies and Python features are detected automatically from code via `content/tech.js`
   (`TECH`, `PYFEATURES`); add an entry there when code uses a new library or language feature.
+- The lab has one guided order: the learning path in `content/path.js` (`PATH` phases → steps with a
+  plain-words `why` it comes now). Every new project, chapter, concept or skill page must be added to `PATH`
+  exactly once, "just in time" before the project that first needs it. The Start page, Warm-up words and
+  level checkpoints (`START_PAGE`, `WARMUP_PAGE`, `CHECKPOINTS`) live in the same file.

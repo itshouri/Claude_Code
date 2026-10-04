@@ -1,35 +1,13 @@
 window.HOME_INTRO = md`
-> **New to all this?** Every page starts with an **"In simple words"** box and an everyday comparison. Any word you don't know is in the [Glossary](#/glossary). Read the simple box first, then the details.
+## How the lab is organised
+Think of it like a **driving school**. There is one lesson plan to follow in order, plus reference books you open whenever you need them.
 
-> **Every project is all-in-one.** You never need to leave a project page:
-> - **0 · Before you start** explains every pattern, guide idea, technology, Python feature and technical word the project uses.
-> - In the text, *underlined words* and pattern or guide links open their explanation right where you are.
-> - Under every piece of code, **"The code in plain words"** walks through it part by part, and **"Python used here"** explains each language feature with a tiny example.
-> - **Recap** at the end lists what you learned and gives you questions to explain it back.
+- **The learning path** is your main road. It lists every lesson, project and checkpoint in the order a tutor would teach them, and each step says *why it comes now*. Follow it in order.
+- **The library** is your bookshelf: guides, concepts, the pattern library, the pattern matrix and the glossary. Open it when a word or idea stops you, or to revise.
 
-## How this lab works
+> **New to all this?** Every page starts with an **"In simple words"** box and an everyday comparison. Read that first. Underlined words can be tapped for a quick explanation without leaving the page.
 
-Every project is a **client engagement**: a company has a problem, hires you, and you take it from a vague brief to a system that runs, has been evaluated, and has a cost figure attached. Every project follows the same eight stages. That repetition is on purpose, because it is how working AI engineers actually operate:
-
-1. **Brief.** What the client says they want.
-2. **Discover.** What they actually need: the questions you ask, the numbers you collect, what success means.
-3. **Frame.** What *kind* of problem this is, and the **simplest** thing that could work.
-4. **Design.** Architecture, data flow, and the trade-offs you chose.
-5. **Build.** Real Python, file by file, with every pattern named.
-6. **Evaluate.** How you'd prove it works before anyone trusts it.
-7. **Operate.** Cost, latency, failure modes, monitoring.
-8. **Level up.** What breaks at 10x scale, and which project tackles that.
-
-> **How to study a project:** read the Brief and stop. Spend 10 minutes sketching your own design on paper. Then read the rest and compare. The gap between your sketch and the design is exactly what you're here to learn.
-
-## Suggested path
-
-- Read [[f:the-loop]], [[f:complexity-ladder]] and [[f:probabilistic-core]] first. They're short and every project depends on them.
-- Do the beginner projects **in order**. B01 builds the ~llm.py~ gateway that every later project reuses.
-- After each level, open the [Pattern matrix](#/matrix) and follow a few patterns across projects.
-- Read [Hiring & skills](#/skills) before you start building a portfolio.
-
-> All code uses the Anthropic Python SDK (2026 API: ~messages.parse~ structured outputs, the tool runner, prompt caching, the Batches API and MCP) behind a small gateway, so you can swap providers in one file. The *patterns* are provider-agnostic, and that's the actual lesson.
+> All code uses the Anthropic Python SDK (2026 API) behind a small gateway file, so you could swap providers in one place. The *patterns* work with any provider, and that's the actual lesson.
 `;
 
 window.FRAMEWORK_INTRO = md`

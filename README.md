@@ -6,6 +6,14 @@ Every project follows the same eight stages, so the way of working becomes a hab
 
 **Brief → Discover → Frame → Design → Build → Evaluate → Operate → Level up**
 
+## How it's organised
+
+Like a driving school: one lesson plan to follow in order, plus reference books to open when you need them.
+
+- **The learning path** (`#/path`) is the main road: 58 steps in 7 phases (Orientation → Foundations → First project → Beginner → Intermediate → Advanced → Career). Short guide and concept lessons sit right before the project that first needs them, each step explains *why it comes now*, and every level ends with a **checkpoint** (self-check questions with hidden answers and a "you're ready if…" list).
+- Every step has a "Step N of 58" banner and a **Mark done & continue** button, and the home page has a **Continue where you left off** button.
+- **The library** (guides, concepts, pattern library, pattern matrix, glossary) is for looking things up at any time.
+
 ## What's inside
 
 | Section | What it gives you |
@@ -52,12 +60,13 @@ content/simple.js       # plain-words explanations + analogies for every page, a
 content/patterns-explained.js  # real-life stories for every pattern + more glossary words
 content/tech.js         # technologies and Python features, detected automatically from the code
 content/walkthroughs-*.js      # "the code in plain words" for every build step
+content/path.js         # the learning path order, Start page, Warm-up words, level checkpoints
 content/projects/*.js   # one file per project (b01–b10, i01–i10, a01–a08)
 ```
 
 ## Adding a project
 
-Create `content/projects/xNN-name.js` that calls `project({...})` with the same fields as the existing ones (`brief`, `discovery`, `frame`, `design`, `tree`, `build[]`, `evaluate`, `operate`, `levelUp`, `exercises`, `interview`), and add a `<script>` tag for it in `index.html`. Pattern usage counts and the matrix update automatically.
+Create `content/projects/xNN-name.js` that calls `project({...})` with the same fields as the existing ones (`brief`, `discovery`, `frame`, `design`, `tree`, `build[]`, `evaluate`, `operate`, `levelUp`, `exercises`, `interview`), add a `<script>` tag for it in `index.html`, and add it as a step in `content/path.js`. Pattern usage counts and the matrix update automatically.
 
 Authoring conventions (see `content/_helpers.js`): prose uses `md```, inline code is written `~like_this~`, fences use `~~~lang`, and cross-links are written `[[p:pattern-id]]`, `[[proj:b01]]`, `[[c:concept-id]]`, `[[f:chapter-id]]`.
 
