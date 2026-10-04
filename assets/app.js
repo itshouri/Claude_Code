@@ -52,6 +52,7 @@
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
     chat: '<path d="M4 5h16v11H9l-5 4z"/>',
     spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+    lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   };
   const icon = (name, cls = "") => ICONS[name] ? '<svg class="ico ' + cls + '" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + "</svg>" : "";
   const divider = (name) => '<div class="divider" role="separator"><span>' + (name ? icon(name) : "") + "</span></div>";
@@ -167,7 +168,7 @@
         const lang = m[1] || "text"; const buf = []; i++;
         while (i < L.length && !/^~~~\s*$/.test(L[i])) buf.push(L[i++]);
         i++;
-        out += codeBlock(buf.join("\n"), lang);
+        out += lang === "quiz" ? quizBlock(buf) : codeBlock(buf.join("\n"), lang);
         continue;
       }
       if ((m = line.match(/^(#{2,4})\s+(.*)$/))) {
@@ -208,6 +209,108 @@
       out += "<p>" + inline(buf.join(" ")) + "</p>";
     }
     return out;
+  }
+
+  /* Quick checks: questions inside a lesson that must be answered to unlock the next part.
+     Written in content as a ~~~quiz fence, one line per part:
+       ? question text      | a line of code     + right option     - wrong option
+       = an accepted typed answer (makes it a "type what it prints" question)     ! why the answer is right */
+  const quizKey = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  const quizSolved = (id) => !!store.get("quiz", {})[id];
+  function quizBlock(lines) {
+    const q = [], code = [], opts = [], typed = [], why = [];
+    lines.forEach((l) => {
+      const t = l.replace(/^\s+/, ""), k = t[0], v = t.slice(2);
+      if (k === "?") q.push(v); else if (k === "|") code.push(l.replace(/^\s*\| ?/, ""));
+      else if (k === "+" || k === "-") opts.push({ ok: k === "+", text: v }); else if (k === "=") typed.push(v);
+      else if (k === "!") why.push(v);
+    });
+    const id = quizKey(q.join(" ") + code.join("\n"));
+    const solved = quizSolved(id);
+    let h = '<div class="quiz' + (solved ? " solved" : "") + '" data-quiz="' + id + '"' + (typed.length ? ' data-answers="' + esc(JSON.stringify(typed)) + '"' : "") + ">";
+    h += '<div class="quiz-head">' + icon("target") + '<span class="simple-tag">Quick check</span>' + (solved ? '<span class="quiz-ok">✓ answered</span>' : "") + "</div>";
+    h += '<div class="quiz-q">' + inline(q.join(" ")) + "</div>" + (code.length ? codeBlock(code.join("\n"), "python") : "");
+    if (typed.length) {
+      h += '<div class="quiz-typed"><input type="text" spellcheck="false" autocomplete="off" aria-label="Your answer" placeholder="Type exactly what Python prints"' + (solved ? ' value="' + esc(typed[0]) + '" disabled' : "") +
+        '><button class="btn" type="button"' + (solved ? " disabled" : "") + ">Check</button></div>";
+    } else {
+      h += '<div class="quiz-opts">' + opts.map((o) => '<button type="button" class="quiz-opt' + (solved && o.ok ? " right" : "") + '" data-ok="' + (o.ok ? 1 : 0) + '"' + (solved ? " disabled" : "") + ">" + inline(o.text) + "</button>").join("") + "</div>";
+    }
+    h += '<div class="quiz-fb" aria-live="polite"></div><div class="quiz-why"' + (solved ? "" : " hidden") + "><strong>Why:</strong> " + inline(why.join(" ")) + "</div></div>";
+    return h;
+  }
+  // Lessons are split at their "## " headings. A part stays hidden until every quick check above it is answered.
+  function lockedSections(body) {
+    const lines = String(body).replace(/\r/g, "").split("\n"), parts = [[]];
+    let fence = false;
+    lines.forEach((l) => {
+      if (/^\s*~~~/.test(l)) fence = !fence;
+      if (!fence && /^\s*##\s/.test(l) && parts[parts.length - 1].some((x) => x.trim())) parts.push([]);
+      parts[parts.length - 1].push(l);
+    });
+    return parts.map((p, i) => '<section class="lsec" data-sec="' + i + '">' + md(p.join("\n")) + "</section>").join("") +
+      '<div class="lock-note" hidden>' + icon("lock") + "<span>Answer the quick check above to unlock the next part.</span></div>";
+  }
+  function updateLocks(root) {
+    const secs = [...root.querySelectorAll(".lsec")], tail = root.querySelector(".lsec-tail"), note = root.querySelector(".lock-note");
+    if (!secs.length) return;
+    let open = true, lockAt = null;
+    secs.forEach((s) => {
+      s.hidden = !open;
+      if (open && s.querySelector(".quiz:not(.solved)")) { open = false; lockAt = s; }
+    });
+    if (tail) tail.hidden = !open;
+    if (note) { note.hidden = open; if (lockAt) lockAt.after(note); }
+    const all = root.querySelectorAll(".quiz").length, done = root.querySelectorAll(".quiz.solved").length;
+    const bar = root.querySelector(".quiz-progress");
+    if (bar) bar.innerHTML = "<span><strong>" + done + " of " + all + "</strong> quick checks answered" + (done === all ? " · everything unlocked ✓" : "") + "</span><div class='bar'><span style='width:" + (all ? (100 * done) / all : 0) + "%'></span></div>";
+  }
+  function wireQuizzes(root) {
+    const norm = (s) => String(s).trim().replace(/\s+/g, " ").replace(/^["']|["']$/g, "").toLowerCase();
+    const solve = (box) => {
+      const all = store.get("quiz", {}); all[box.dataset.quiz] = 1; store.set("quiz", all);
+      box.classList.add("solved");
+      box.querySelectorAll("button, input").forEach((b) => (b.disabled = true));
+      box.querySelector(".quiz-why").hidden = false;
+      const head = box.querySelector(".quiz-head");
+      if (!head.querySelector(".quiz-ok")) head.insertAdjacentHTML("beforeend", '<span class="quiz-ok">✓ answered</span>');
+      const before = root.querySelectorAll(".lsec:not([hidden])").length;
+      updateLocks(root);
+      const fb = box.querySelector(".quiz-fb");
+      fb.className = "quiz-fb good";
+      fb.textContent = root.querySelectorAll(".lsec:not([hidden])").length > before ? "Correct! The next part is unlocked below ↓" : "Correct!";
+    };
+    root.querySelectorAll(".quiz:not(.solved)").forEach((box) => {
+      const fb = box.querySelector(".quiz-fb");
+      box.querySelectorAll(".quiz-opt").forEach((b) => b.addEventListener("click", () => {
+        if (b.dataset.ok === "1") { b.classList.add("right"); solve(box); }
+        else { b.classList.add("wrong"); b.disabled = true; fb.className = "quiz-fb bad"; fb.textContent = "Not quite. Read the code again line by line, then pick another answer."; }
+      }));
+      const inp = box.querySelector(".quiz-typed input");
+      if (!inp) return;
+      let answers = [];
+      try { answers = JSON.parse(box.dataset.answers || "[]"); } catch (e) { /* leave empty */ }
+      let tries = 0;
+      const check = () => {
+        if (!inp.value.trim()) return;
+        if (answers.some((a) => norm(a) === norm(inp.value))) { inp.classList.remove("wrong"); solve(box); return; }
+        tries++;
+        inp.classList.add("wrong");
+        fb.className = "quiz-fb bad";
+        fb.innerHTML = "Not quite. Go through the code one line at a time, writing down each value." + (tries >= 2 ? ' <button type="button" class="linklike">Show me the answer</button>' : "");
+        const show = fb.querySelector("button");
+        if (show) show.addEventListener("click", () => { inp.value = answers[0]; solve(box); });
+      };
+      box.querySelector(".quiz-typed button").addEventListener("click", check);
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") check(); });
+    });
+    root.querySelectorAll("[data-quiz-reset]").forEach((b) => b.addEventListener("click", () => {
+      const all = store.get("quiz", {});
+      root.querySelectorAll(".quiz").forEach((q) => delete all[q.dataset.quiz]);
+      store.set("quiz", all);
+      route(); window.scrollTo(0, 0);
+    }));
+    updateLocks(root);
   }
 
   function codeBlock(code, lang) {
@@ -371,7 +474,8 @@
     const l = PYL[id];
     if (!l) return notFound();
     let h = '<p class="muted small"><a href="#/python">Python toolkit</a></p><h1>' + esc(l.title) + "</h1><p class='lead'>" + esc(l.summary) + "</p>" + simpleBox("python:" + id);
-    h += '<div class="prose">' + md(l.body) + "</div>";
+    h += '<div class="quiz-progress"></div><p class="muted small">Each part ends with a <strong>quick check</strong>. Answer it to unlock the next part. Every code example shows what it prints in a comment: <code># → like this</code>.</p>';
+    h += '<div class="prose">' + lockedSections(l.body) + '</div><div class="lsec-tail">';
     if (l.practice && l.practice.length) {
       h += divider("target") + "<h2>" + icon("target", "h") + "Practice</h2><p class='muted'>Answer in your head or on paper first, then tap to compare.</p>";
       h += l.practice.map((qa, i) => '<details class="xd qa"><summary><strong>' + (i + 1) + ".</strong> <span>" + inline(qa.q) + '</span></summary><div class="xd-body"><span class="simple-tag">A good answer</span><p>' + inline(qa.a) + "</p></div></details>").join("");
@@ -383,7 +487,7 @@
       h += '<div class="chips-row">' + feats.map((f) => '<button type="button" class="chip" data-x="py:' + f.id + '">' + inline(f.name) + "</button>").join("") + "</div>";
       if (uses.length) h += "<p class='small'>" + uses.map((p) => '<a href="#/project/' + p.id + '">' + p.code + "</a>").join(" · ") + "</p>";
     }
-    return h + pathPager("py:" + id);
+    return h + pathPager("py:" + id) + '</div><p class="muted small"><button class="linklike" type="button" data-quiz-reset>Reset this lesson\'s quick checks</button> (to practise them again)</p>';
   }
 
   function pageStart() {
@@ -892,9 +996,15 @@
   }
 
   function enhance() {
+    wireQuizzes(main);
     if (location.hash.startsWith("#/project/")) markTerms(main);
     if (window.hljs) main.querySelectorAll("pre code").forEach((el) => {
       if (!/language-(text|txt)$/.test(el.className)) { try { window.hljs.highlightElement(el); } catch (e) { /* ignore */ } }
+    });
+    // make "# → what it prints" comments stand out from ordinary comments (also when highlight.js didn't load)
+    main.querySelectorAll("pre code").forEach((el) => {
+      if (el.classList.contains("hljs")) el.querySelectorAll(".hljs-comment").forEach((c) => { if (/^#\s*(→|✗)/.test(c.textContent)) c.classList.add("out"); });
+      else if (/#\s*(→|✗)/.test(el.textContent)) el.innerHTML = el.innerHTML.replace(/#\s*(→|✗)[^\n]*/g, (m) => '<span class="out">' + m + "</span>");
     });
     main.querySelectorAll(".copy-btn").forEach((b) => b.addEventListener("click", () => {
       const code = b.parentElement.querySelector("code").innerText;
