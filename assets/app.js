@@ -168,7 +168,7 @@
         const lang = m[1] || "text"; const buf = []; i++;
         while (i < L.length && !/^~~~\s*$/.test(L[i])) buf.push(L[i++]);
         i++;
-        out += lang === "quiz" ? quizBlock(buf) : codeBlock(buf.join("\n"), lang);
+        out += lang === "quiz" ? quizBlock(buf) : lang === "explain" ? explainBlock(buf) : codeBlock(buf.join("\n"), lang);
         continue;
       }
       if ((m = line.match(/^(#{2,4})\s+(.*)$/))) {
@@ -311,6 +311,11 @@
       route(); window.scrollTo(0, 0);
     }));
     updateLocks(root);
+  }
+
+  // "How this code works": a plain-words walkthrough attached under the code block above it (~~~explain fence)
+  function explainBlock(lines) {
+    return '<div class="explain"><div class="explain-head">' + icon("bulb") + "<span>How this code works</span></div>" + md(lines.join("\n")) + "</div>";
   }
 
   function codeBlock(code, lang) {

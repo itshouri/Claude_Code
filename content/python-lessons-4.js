@@ -32,6 +32,27 @@ print(f"one at a time: {time.perf_counter() - t0:.1f}s")
 # → ['payroll_run', 'other', 'payroll_run', 'other', 'payroll_run']
 # → one at a time: 1.0s
 ~~~
+~~~explain
+**What it's for:** measuring the slow way first: classifying tickets one after another, like an eval would without parallelism.
+
+**Function ~triage(ticket)~:** waits 0.2 s (pretending to be an AI call), then returns ~"payroll_run"~ if the ticket mentions "paid", otherwise ~"other"~.
+
+**Step by step:**
+1. ~t0~ starts a stopwatch.
+2. The comprehension calls ~triage~ on each of the 5 tickets **in turn**. Each call blocks for 0.2 s before the next starts:
+
+| ticket | wait | label | elapsed so far |
+|---|---|---|---|
+| staff not paid | 0.2 s | payroll_run | 0.2 s |
+| export report | 0.2 s | other | 0.4 s |
+| not paid again | 0.2 s | payroll_run | 0.6 s |
+| login help | 0.2 s | other | 0.8 s |
+| paid twice? | 0.2 s | payroll_run | 1.0 s |
+
+3. Print the labels and the total time.
+
+**Result:** 1.0 s for 5 tickets. Waits add up: 300 real tickets at ~2 s each would take 10 minutes.
+~~~
 
 5 × 0.2s = 1 second. For 300 real tickets at ~2 seconds each, that's 10 minutes per eval run, and you'll run the eval many times a day.
 
@@ -64,6 +85,17 @@ print(f"in parallel: {time.perf_counter() - t0:.1f}s")
 # → ['payroll_run', 'other', 'payroll_run', 'other', 'payroll_run']
 # → in parallel: 0.2s
 ~~~
+~~~explain
+**What it's for:** the same work, done with a thread pool, as B01's eval does.
+
+**Step by step:**
+1. ~ThreadPoolExecutor(max_workers=8)~ creates up to 8 helpers that can each run a function at the same time. The ~with~ block waits for all of them to finish before moving on.
+2. ~pool.map(triage, tickets)~ hands one ticket to each helper. All 5 wait their 0.2 s **at the same time**.
+3. ~list(...)~ collects the results **in the same order as the tickets**, whatever order the helpers finished in.
+4. Print the labels and the time.
+
+**Result:** the same labels in 0.2 s instead of 1.0 s. Because the order is kept, B01 can safely ~zip~ each prediction with its golden row.
+~~~
 
 Same answers, **same order**, a fifth of the time. ~pool.map~ always gives results back in the order of the inputs, so B01 can safely ~zip(rows, preds)~ afterwards. ~max_workers~ caps how many run at once.
 
@@ -86,6 +118,24 @@ print(allowed)
 print(final)
 # → [True, False, True]
 # → ['doc-1', 'doc-3']
+~~~
+~~~explain
+**What it's for:** A01 re-checking permissions for the top search results in parallel, then keeping only the allowed ones.
+
+**Function ~still_allowed(doc)~:** returns ~True~ if the document's owner group is one of the user's groups. (In A01 this asks the original system, which is slow, hence the parallel pool.)
+
+**Step by step:**
+1. ~pool.map(still_allowed, top)~ checks all three documents at once; results come back in order:
+
+| doc | owner_group | user in that group? | allowed |
+|---|---|---|---|
+| doc-1 | quality | yes | True |
+| doc-2 | finance | no | False |
+| doc-3 | quality | yes | True |
+
+2. ~zip(top, allowed)~ pairs each document with its answer; the comprehension keeps the ids where the answer is ~True~.
+
+**Result:** ~[True, False, True]~ and ~['doc-1', 'doc-3']~. doc-2 is dropped before the AI ever sees it.
 ~~~
 
 ~~~quiz
@@ -131,6 +181,20 @@ asyncio.run(main())
 # → ['negative', 'positive', 'negative', 'positive']
 # → took 0.2s
 ~~~
+~~~explain
+**What it's for:** the async way to run many AI calls at once.
+
+**Function ~classify(review)~:** an ~async def~ function. ~await asyncio.sleep(0.2)~ means "wait here 0.2 s, and let other work run meanwhile". Then it returns "negative" if the review mentions "cold", otherwise "positive".
+
+**Function ~main()~:**
+1. Builds one ~classify(...)~ job per review.
+2. ~asyncio.gather(*jobs)~ starts all four, waits until all are finished, and returns their results **in the listed order**. ~await~ waits for that.
+3. Prints the labels and the elapsed time.
+
+~asyncio.run(main())~ starts the whole thing from ordinary code.
+
+**Result:** four labels in about 0.2 s (all four waits overlapped), instead of 0.8 s.
+~~~
 
 ~asyncio.gather~ starts every call, waits for all of them, and returns results **in the order you listed them**.
 
@@ -168,6 +232,23 @@ async def main():
 asyncio.run(main())
 # → [0, 1, 2, 3, 4, 5] peak in flight: 2
 ~~~
+~~~explain
+**What it's for:** keeping parallel calls under a rate limit: never more than 2 at the same time.
+
+**Step by step:**
+1. ~asyncio.Semaphore(2)~ is like a doorman with 2 passes.
+2. ~async with limit:~ inside ~polite_call~ means "wait for a free pass, use it for this block, then hand it back".
+3. While inside, the code counts how many calls are in flight and remembers the highest number (~peak~).
+4. ~gather~ starts 6 calls at once, but the semaphore lets them through in pairs:
+
+| Moment | inside the block | waiting | in_flight |
+|---|---|---|---|
+| start | calls 0 and 1 | 2, 3, 4, 5 | 2 (peak 2) |
+| after ~0.05 s | calls 2 and 3 | 4, 5 | 2 |
+| after ~0.10 s | calls 4 and 5 | none | 2 |
+
+**Result:** all 6 results, in order, and ~peak in flight: 2~. Every call is served, but the service never sees more than 2 at once.
+~~~
 
 Like a **shop that lets in 2 customers at a time**: everyone is served, the shop never overflows. For threads, ~max_workers~ does the same job.
 
@@ -180,6 +261,16 @@ Like a **shop that lets in 2 customers at a time**: everyone is served, the shop
 # for res in client.messages.batches.results(batch.id):
 #     if res.result.type == "succeeded": store(res.custom_id, res.result.message)
 # → batch msgbatch_01... ended: 59,874 succeeded, 126 to retry   (example)
+~~~
+~~~explain
+**What it's for:** B03's Batches API flow (shape only; it needs the package and an API key).
+
+**Step by step:**
+1. ~batches.create(requests=[...])~ uploads all requests at once; each has a ~custom_id~ (the review id) so results can be matched later.
+2. Your program stops; hours later a scheduled job checks the batch.
+3. ~batches.results(batch.id)~ gives one result per request; the loop stores the successful ones by their ~custom_id~ (failed ones are resubmitted).
+
+**Result:** tens of thousands of reviews tagged at about half the normal price, because nobody needed the answers immediately.
 ~~~
 
 ~~~quiz
@@ -214,6 +305,24 @@ async def main():
 asyncio.run(main())
 # → {'r1': 'tags for r1', 'r3': 'tags for r3'}
 # → retry: ['r2']
+~~~
+~~~explain
+**What it's for:** keeping the good results when some parallel calls fail.
+
+**Function ~tag(review_id)~:** waits briefly; raises ~TimeoutError~ for "r2", otherwise returns a result text.
+
+**Function ~main()~:**
+1. ~gather(..., return_exceptions=True)~ runs all three. Instead of stopping at r2's error, it puts the **error object** in r2's place in the results list.
+2. ~ok~: a dict of id → result for every result that is **not** an exception.
+3. ~retry~: a list of ids whose result **is** an exception.
+
+| id | result | is Exception? | goes to |
+|---|---|---|---|
+| r1 | "tags for r1" | no | ok |
+| r2 | TimeoutError | yes | retry |
+| r3 | "tags for r3" | no | ok |
+
+**Result:** two results kept, one id to retry. Without ~return_exceptions=True~, the error would have been raised and the two good results lost.
 ~~~
 
 ~~~quiz
@@ -251,6 +360,20 @@ with ThreadPoolExecutor(max_workers=6) as pool:
 print(round(budget.spent_usd, 2))
 # → 6.0
 ~~~
+~~~explain
+**What it's for:** A03's budget, safely updated by several workers at the same time.
+
+**Class ~Budget~:** holds ~spent_usd~ and a ~threading.Lock~. ~charge(cost)~ adds to ~spent_usd~ **inside** ~with self._lock:~, so only one worker at a time can do the addition. Others wait a moment.
+
+**Function ~worker(n)~:** charges $0.001, 1,000 times.
+
+**Step by step:**
+1. The pool runs 6 workers at once (~range(6)~ gives each a number it doesn't use).
+2. Each makes 1,000 charges of $0.001: 6 × 1,000 × 0.001 = $6.00.
+3. Thanks to the lock, no two additions overlap, so none is lost.
+
+**Result:** ~6.0~, every time. Without the lock, two workers could read the same old total, both add to it, and one charge would vanish (a race condition).
+~~~
 
 6 workers × 1,000 charges × $0.001 = exactly $6.00, every time. Like a **single pen on a shared expense sheet**: whoever holds the pen writes; the others wait a moment.
 
@@ -279,6 +402,22 @@ for piece in fake_stream():
 # → screen now: 'Lisbon in March '
 # → screen now: 'Lisbon in March is mild, '
 # → screen now: 'Lisbon in March is mild, around 18°C.'
+~~~
+~~~explain
+**What it's for:** showing what streaming looks like: the answer arrives in pieces and is shown as it grows.
+
+**Function ~fake_stream()~:** a generator that yields four pieces of text, one at a time, like a real stream yields pieces as the model writes them.
+
+**The loop:** each round adds the new piece to ~shown~ and prints what the screen would display.
+
+| Round | piece | shown afterwards |
+|---|---|---|
+| 1 | "Lisbon " | 'Lisbon ' |
+| 2 | "in March " | 'Lisbon in March ' |
+| 3 | "is mild, " | 'Lisbon in March is mild, ' |
+| 4 | "around 18°C." | 'Lisbon in March is mild, around 18°C.' |
+
+**Result:** the user starts reading after the first piece, instead of waiting for the whole answer.
 ~~~
 
 The total time is the same; the user just starts reading after a fraction of a second.
@@ -312,6 +451,17 @@ async def main():
 asyncio.run(main())
 # → coroutine
 # → billing
+~~~
+~~~explain
+**What it's for:** the most common async mistake, and its fix.
+
+**Function ~get_label()~:** an async function that returns "billing".
+
+**Function ~main()~:**
+1. ~wrong = get_label()~ **without** ~await~ doesn't run the function; it only creates a "coroutine" (a promise of work). ~type(...).__name__~ shows "coroutine".
+2. ~await wrong~ actually runs it and gives the real answer, "billing".
+
+**Result:** ~coroutine~, then ~billing~. If you see "coroutine" where you expected data, add ~await~.
 ~~~
 
 ~~~quiz
@@ -396,6 +546,19 @@ except AssertionError as e:
     print("check failed:", e)
 # → check failed: unknown labels must go to humans
 ~~~
+~~~explain
+**What it's for:** how ~assert~ works: silent when true, loud when false.
+
+**Function ~route(category, confidence)~:** returns ~"general"~ if confidence is below 0.6; otherwise looks the category up (only "billing" is known) and falls back to ~"general"~.
+
+**Step by step:**
+1. ~assert route("billing", 0.9) == "billing"~: the function returns "billing", the statement is true, nothing happens.
+2. ~assert route("billing", 0.3) == "general"~: low confidence → "general", true, nothing happens.
+3. ~assert route("refunds", 0.9) == "refunds", "..."~: the function returns "general" (unknown label), so the statement is **false**. Python raises ~AssertionError~ carrying the message after the comma.
+4. The ~except~ catches it and prints the message.
+
+**Result:** one "check failed" line. Here the *assert* was wrong, not the code: sending unknown labels to humans is the correct behaviour.
+~~~
 
 (Here the *assert* was wrong, on purpose: the code correctly sends unknown labels to "general".)
 
@@ -446,6 +609,25 @@ def test_urgent_billing_does_not_page():
 # → ...  [100%]
 # → 3 passed in 0.01s
 ~~~
+~~~explain
+**What it's for:** B01's real routing tests, run by pytest.
+
+**Function ~route(t)~:** returns a dict with:
+- ~queue~: the table lookup (or "general" for unknown labels) if confidence ≥ 0.6, otherwise "general";
+- ~page_oncall~: True only for urgent payroll_run or account_access tickets.
+
+**Function ~t(**kw)~ (test helper):** starts from a valid urgent payroll ticket with confidence 0.9 and overrides whatever you pass, e.g. ~t(confidence=0.3)~. Each test then changes only the field it's about.
+
+**The three tests** (pytest runs every function whose name starts with ~test_~):
+
+| Test | ticket built | route returns | assert checks | passes? |
+|---|---|---|---|---|
+| urgent payroll pages on-call | default | payroll-runs, page True | both | yes |
+| low confidence goes to humans | confidence 0.3 | general | queue == general | yes |
+| urgent billing does not page | category billing | page False | not page | yes |
+
+**Result:** three dots and "3 passed". If someone breaks the confidence floor or the paging rule, one of these turns into an F immediately.
+~~~
 
 The little ~t(**kw)~ helper is a pattern you'll reuse: start from a valid example and change only the field the test is about.
 
@@ -458,6 +640,18 @@ pytest -q
 # → >       assert route(t(confidence=0.3))["queue"] == "general"
 # → E       AssertionError: assert 'payroll-runs' == 'general'
 # → 1 failed, 2 passed in 0.03s
+~~~
+~~~explain
+**What it's for:** reading pytest's report when a test fails.
+
+**Step by step:**
+1. ~.F.~: test 1 passed (.), test 2 failed (F), test 3 passed.
+2. The section with underscores names the failing test.
+3. The ~>~ line shows the exact ~assert~ that failed.
+4. The ~E~ line shows the values: the code returned ~'payroll-runs'~ where ~'general'~ was expected.
+5. The summary: 1 failed, 2 passed.
+
+**Result:** you know exactly what broke: a low-confidence ticket was routed to a team instead of to humans, so the confidence check in ~route~ isn't working.
 ~~~
 
 Read from the bottom: 1 failed. The ~E~ line says the code returned ~'payroll-runs'~ where ~'general'~ was expected: someone broke the confidence floor.
@@ -500,6 +694,19 @@ def test_long_tickets_are_truncated():
 # → ..  [100%]
 # → 2 passed in 0.01s
 ~~~
+~~~explain
+**What it's for:** B01's tests that prove customer text is wrapped as data and long tickets are cut, without calling the AI.
+
+**Class ~FakeLLM~:** has the same ~parse~ method as the real gateway; it saves the prompt it receives in ~self.seen~ and returns a fixed answer.
+
+**Function ~triage_ticket(subject, body, llm)~:** builds the tagged prompt (body cut to 8,000 characters) and calls ~llm.parse~.
+
+**The two tests:**
+1. ~test_ticket_is_wrapped_as_data~: sends a ticket that tries to give orders, then checks the prompt the fake received contains ~<ticket>~ and ~<body>~. Passes.
+2. ~test_long_tickets_are_truncated~: sends a 50,000-character body, then checks the prompt is under 8,100 characters (8,000 of body plus the tags). Passes.
+
+**Result:** "2 passed": both safety properties proven in milliseconds, at no cost.
+~~~
 
 **Real problem (I02): an agent must never touch another customer's order**, whatever the model asks for. Test the tool dispatcher directly with the "attack" input:
 
@@ -527,6 +734,23 @@ def test_can_read_own_order():
 
 # → ..  [100%]
 # → 2 passed in 0.01s
+~~~
+~~~explain
+**What it's for:** I02's most important test: an agent can never read another customer's order, whatever the model asks for.
+
+**Function ~dispatch(name, args, customer_id)~:** runs the tool the model asked for.
+1. For ~get_order~, look up the order. If it doesn't exist **or** belongs to a different customer, return a JSON error.
+2. Otherwise return the order as JSON.
+3. Unknown tool names also return a JSON error.
+
+**The two tests:**
+
+| Test | order | asking customer | owner | result | assert |
+|---|---|---|---|---|---|
+| cannot read other's order | BB-999 | c_17 | c_42 | error JSON | has "error", no "processing" leaked → pass |
+| can read own order | BB-1 | c_17 | c_17 | the order | status is "shipped" → pass |
+
+**Result:** "2 passed". The ownership check is in code, so testing the code directly proves the guardrail holds even if the model is tricked.
 ~~~
 
 This is the most important kind of test in agent projects: **the guardrail holds even if the model is tricked.** The model never gets to decide whose orders it can see; code does.
@@ -577,6 +801,26 @@ def test_garbage_raises():
 # → ......  [100%]
 # → 6 passed in 0.01s
 ~~~
+~~~explain
+**What it's for:** B02's money parser tested on every invoice format, plus a test that garbage is rejected loudly.
+
+**Function ~money(s)~:** the parser from lesson 6, now raising a clear ~ValueError~ for text that isn't a number.
+
+**Step by step:**
+1. ~@pytest.mark.parametrize("printed,expected", [...])~ tells pytest to run ~test_money_formats~ once per row, filling ~printed~ and ~expected~ from that row:
+
+| printed | expected | money(printed) | equal? |
+|---|---|---|---|
+| "1,234.50" | 1234.50 | 1234.50 | yes |
+| "1.234,50" | 1234.50 | 1234.50 | yes |
+| "1234,50" | 1234.50 | 1234.50 | yes |
+| " 99 " | 99 | 99 | yes |
+| "-15.00" | -15.00 | -15.00 | yes |
+
+2. ~test_garbage_raises~: ~with pytest.raises(ValueError):~ passes only if the code inside raises ~ValueError~. "12,O0" does, so it passes.
+
+**Result:** 6 dots, "6 passed". Adding a new format later is one extra row.
+~~~
 
 ~~~quiz
 ? A ~parametrize~ list has 5 rows and there's one other test in the file. How many results does pytest report?
@@ -611,6 +855,22 @@ def test_day_31_is_refused(delivered):
 # → ..  [100%]
 # → 2 passed in 0.01s
 ~~~
+~~~explain
+**What it's for:** testing I02's 30-day return window exactly on its edge, with a fixed date so the test gives the same answer every day.
+
+**Function ~in_return_window(delivered, today, days=30)~:** returns True if the gap between delivery and today is at most 30 days. ~today~ is an **input**, not read from the clock, which is what makes it testable.
+
+**Fixture ~delivered~:** ~@pytest.fixture~ makes pytest call this function and pass its result (1 September 2026) to any test that has an input named ~delivered~.
+
+**The two tests:**
+
+| Test | today | gap | ≤ 30 days? | assert |
+|---|---|---|---|---|
+| day 30 is allowed | 1 Oct | 30 days | yes | passes |
+| day 31 is refused | 2 Oct | 31 days | no | ~not ...~ passes |
+
+**Result:** "2 passed". Testing day 30 *and* day 31 pins down exactly where the boundary is; that's where off-by-one bugs hide.
+~~~
 
 A **fixture** (~@pytest.fixture~) prepares something tests need, like sample data, a fake model or a sandbox shop with seeded orders, and pytest hands it to every test that names it as an input. B04's eval does the same "freeze today" trick so "next Thursday" always means the same date.
 
@@ -644,6 +904,25 @@ print("GATE:", "blocked" if failures else "passed")
 # → urgent_recall   0.97 → 0.93  FAIL
 # → GATE: blocked
 ~~~
+~~~explain
+**What it's for:** I10's eval gate: block a prompt or model change if a critical score drops by more than a small tolerance.
+
+**Step by step:**
+1. ~failures~: for each **critical** metric, is the new score below (old score − 0.02)?
+   - faithfulness: 0.95 < 0.92? no.
+   - urgent_recall: 0.93 < 0.95? **yes** → failure.
+2. The loop prints every metric with a flag:
+
+| metric | old → new | in failures? | dropped at all? | flag |
+|---|---|---|---|---|
+| faithfulness | 0.94 → 0.95 | no | no | ok |
+| length_ok_rate | 0.90 → 0.80 | no (not critical) | yes | soft drop |
+| urgent_recall | 0.97 → 0.93 | **yes** | yes | FAIL |
+
+3. ~failures~ isn't empty, so the gate says "blocked".
+
+**Result:** the change can't ship: it misses more urgent tickets, even though it's slightly more faithful. The non-critical drop is reported but doesn't block.
+~~~
 
 The new prompt is slightly more faithful but misses more urgent tickets, so it can't ship. The gate turns "seems better" into a measured decision.
 
@@ -676,6 +955,21 @@ def test_only_spaces():
 
 # → ...  [100%]
 # → 3 passed in 0.01s
+~~~
+~~~explain
+**What it's for:** testing the awkward inputs, not just the normal one.
+
+**Function ~word_count(text)~:** splits the text at whitespace and returns how many words there are.
+
+**The three tests:**
+
+| Test | input | split() gives | count | assert |
+|---|---|---|---|---|
+| normal | "Payroll failed for 14 staff" | 5 words | 5 | passes |
+| empty | "" | [] | 0 | passes |
+| only spaces | spaces and a newline | [] | 0 | passes |
+
+**Result:** "3 passed". Empty and blank inputs are exactly what real users (and AI outputs) produce, so they deserve tests.
 ~~~
 
 ~~~quiz
@@ -768,6 +1062,23 @@ print(response.stop_reason)
 # → 31 3              (example token counts)
 # → end_turn
 ~~~
+~~~explain
+**What it's for:** a complete, real call to Claude (it needs the package and an API key to run).
+
+**Step by step:**
+1. ~anthropic.Anthropic()~ creates a client; it finds the API key in the environment by itself.
+2. ~client.messages.create(...)~ sends the request. Its four parts are the "order slip":
+   - ~model~: which model answers;
+   - ~max_tokens~: the longest answer allowed (caps cost and length);
+   - ~system~: the standing instructions;
+   - ~messages~: the conversation, here one user message with the ticket inside tags.
+3. The response comes back as an object:
+   - ~response.content[0].text~: the first content block's text, the answer;
+   - ~response.usage~: tokens in and out (what you pay for);
+   - ~response.stop_reason~: why it stopped.
+
+**Result:** something like "billing", the token counts, and ~end_turn~ (finished normally).
+~~~
 
 ~~~quiz
 ? In ~client.messages.create(...)~, what goes in ~system~ and what goes in ~messages~?
@@ -797,6 +1108,17 @@ print(response.stop_reason)
 # → billing
 # → 415 tokens
 # → end_turn
+~~~
+~~~explain
+**What it's for:** practising reading a response without an API key, using an object with the same shape.
+
+**Step by step:**
+1. ~SimpleNamespace~ (nicknamed ~Obj~) builds objects whose fields you read with dots, just like the real response.
+2. ~"".join(b.text for b in response.content if b.type == "text")~ collects the text of every text block (safer than ~content[0]~, which might be a tool block).
+3. Input + output tokens: 412 + 3 = 415.
+4. ~stop_reason~ is "end_turn".
+
+**Result:** ~billing~, ~415 tokens~, ~end_turn~: the three things your code reads from almost every response.
 ~~~
 
 The ~stop_reason~ tells you **why** the model stopped, and each needs different handling:
@@ -836,6 +1158,20 @@ u = Obj(input_tokens=3_000, output_tokens=400, cache_read_input_tokens=0)
 print(f"haiku \${cost_of('claude-haiku-4-5', u):.4f}   opus \${cost_of('claude-opus-5-5', u):.4f}")
 # → haiku $0.0050   opus $0.0200
 ~~~
+~~~explain
+**What it's for:** A04's cost ledger: the price of one call from its usage numbers.
+
+**Function ~cost_of(model, usage)~:**
+1. Looks up the model's three prices (input, output, cache-read) per million tokens.
+2. ~usage.cache_read_input_tokens or 0~: uses the cached count, or 0 if it's missing/None.
+3. Multiplies each token count by its price, adds them, divides by a million (~1e6~), and **returns** dollars.
+
+**For 3,000 input and 400 output tokens, no cache:**
+- Haiku: (3,000 × 1.0 + 400 × 5.0) ÷ 1,000,000 = 5,000 ÷ 1,000,000 = $0.0050.
+- Opus: (3,000 × 4.0 + 400 × 20.0) ÷ 1,000,000 = 20,000 ÷ 1,000,000 = $0.0200.
+
+**Result:** the same call costs 4× more on Opus. Your eval decides whether the cheaper model is good enough.
+~~~
 
 Choosing the model per task (fast and cheap for simple, high-volume work; the strongest model for hard reasoning) is one of your biggest cost levers, and the eval tells you whether the cheaper model is good enough.
 
@@ -872,6 +1208,17 @@ t = resp.parsed_output                      # a checked Triage object
 print(t.category, t.confidence)
 # → payroll_run 0.95          (example output)
 ~~~
+~~~explain
+**What it's for:** getting a checked object back from Claude instead of free text (needs the package and a key).
+
+**Step by step:**
+1. ~Triage~ is the form (lesson 11): a reason, a category from a fixed list, and a confidence between 0 and 1.
+2. ~client.messages.parse(..., output_format=Triage)~ sends the request **with the schema**; the model must fill in exactly that form.
+3. The library checks the answer against the schema and puts the resulting ~Triage~ object in ~resp.parsed_output~.
+4. Read its fields with dots.
+
+**Result:** e.g. ~payroll_run 0.95~, already validated, so your code can use it directly.
+~~~
 
 What you do next is plain Python from earlier lessons, and you can run that part now:
 
@@ -890,6 +1237,16 @@ t = Triage(reason="Staff unpaid today", category="payroll_run", confidence=0.95)
 queue = QUEUES[t.category] if t.confidence >= 0.6 else "general"
 print(f"→ {queue} (confidence {t.confidence:.2f}; {t.reason})")
 # → → payroll-runs (confidence 0.95; Staff unpaid today)
+~~~
+~~~explain
+**What it's for:** what happens right after a structured answer comes back: plain-code routing (runnable).
+
+**Step by step:**
+1. ~t~ is a ~Triage~ object, as if returned by the previous example.
+2. The one-line choice: is the confidence (0.95) at least 0.6? Yes, so look up the queue for "payroll_run" → "payroll-runs". (Below 0.6, it would be "general".)
+3. The f-string writes the decision, the confidence with 2 decimals, and the AI's reason.
+
+**Result:** ~→ payroll-runs (confidence 0.95; Staff unpaid today)~. That's B01's whole flow: AI fills the form, code decides.
 ~~~
 
 ~~~quiz
@@ -950,6 +1307,24 @@ print(len(messages), "messages")
 # → FINAL: Your sofa ships Tuesday.
 # → 4 messages
 ~~~
+~~~explain
+**What it's for:** the complete tool-use protocol, step by step, with a fake client that answers like the real API.
+
+**Class ~FakeClient~:** counts its calls. Call 1 returns ~stop_reason="tool_use"~ with a text block and a ~tool_use~ block (id tu_1, name get_order, input order BB-1). Call 2 returns a final text answer.
+
+**Function ~dispatch(name, args)~:** plain code that runs the tool: for get_order on BB-1 it returns the order as JSON; anything else returns a JSON error.
+
+**The loop, round by round:**
+
+| Round | model replies | what the code does | messages after |
+|---|---|---|---|
+| 1 | tool_use: get_order(BB-1) | append the reply; pick out ~calls~; run dispatch; build one ~tool_result~ with ~tool_use_id="tu_1"~; append them as one user message | 3 |
+| 2 | end_turn: "Your sofa ships Tuesday." | append the reply; no tool calls → print FINAL and ~break~ | 4 |
+
+The ~else~ (hand over) doesn't run, because the loop ended with ~break~.
+
+**Result:** the printed tool result, the final answer, and 4 messages: question → model asks for tool → tool result → final answer. Every agent in the lab follows exactly this pattern.
+~~~
 
 Every piece comes from earlier lessons: a list of dicts (4), a ~for...else~ with a budget (5), a function for dispatch (6), comprehensions to pick blocks (7), ~json.dumps~ for results (8). The SDK also offers ~client.beta.messages.tool_runner(...)~, which runs this loop for you (I02 shows both).
 
@@ -985,6 +1360,16 @@ content = [
 print([b["type"] for b in content])
 # → ['document', 'text']
 ~~~
+~~~explain
+**What it's for:** B02 sending a PDF and an instruction in one message.
+
+**Step by step:**
+1. The PDF's bytes are base64-encoded into text (lesson 8).
+2. ~content~ is a **list of blocks**: a document block (type, encoding, file type, data) and a text block with the instruction.
+3. The comprehension prints each block's type.
+
+**Result:** ~['document', 'text']~. This list goes in the ~content~ of a user message, instead of a plain string.
+~~~
 
 **Real problem (B05): the same 45-page handbook is sent with every question.** **Prompt caching** marks a long, unchanging part of the prompt with ~cache_control~; later calls read it from the cache at a fraction of the price:
 
@@ -999,6 +1384,17 @@ no_cache = handbook_tokens * questions * 4.0 / 1e6           # full input price 
 with_cache = handbook_tokens * questions * 0.20 / 1e6        # cache-read price (after the first write)
 print(f"handbook cost for {questions} questions: \${no_cache:.2f} without caching, about \${with_cache:.2f} with")
 # → handbook cost for 1000 questions: $120.00 without caching, about $6.00 with
+~~~
+~~~explain
+**What it's for:** B05's prompt caching, and why it saves so much money.
+
+**Step by step:**
+1. ~system~ is a list of two text blocks: short rules, then the long handbook. The handbook block has ~cache_control~, which tells the service "cache everything up to here".
+2. The maths for 1,000 questions, each sending the 30,000-token handbook:
+   - without caching: 30,000 × 1,000 × $4 per million = $120.00;
+   - with caching: the same tokens are read from the cache at $0.20 per million = $6.00 (plus a one-time cost to write the cache).
+
+**Result:** about 20× cheaper for the handbook part. The stable part goes first and is cached; the changing question goes after it.
 ~~~
 
 Rule of thumb: put the **stable** parts first (instructions, documents, examples) and mark the end of them for caching; put the **changing** part (the question) last. ~usage.cache_read_input_tokens~ tells you it worked.
@@ -1043,6 +1439,22 @@ print(parse("Triage tickets.", "<ticket>Staff unpaid</ticket>", "Triage", tier="
 # → parse model=claude-haiku-4-5 in=520 out=40 stop=end_turn
 # → payroll_run
 ~~~
+~~~explain
+**What it's for:** B01's gateway, the one function every file uses for AI calls (runnable with a fake client).
+
+**Class ~FakeMessages~ and ~_client~:** a stand-in for ~anthropic.Anthropic()~ whose ~messages.parse~ returns a response with ~parsed_output~ "payroll_run", ~stop_reason~ "end_turn" and some usage numbers.
+
+**Function ~parse(system, user, schema, *, tier="smart", max_tokens=2048)~:**
+1. Picks the model for the tier (here "fast" → Haiku) and starts a stopwatch.
+2. Calls the client with the system prompt, the user message and the schema.
+3. Logs one line: model, tokens in and out, stop reason.
+4. If the answer was refused or cut off, **raises** an error instead of returning it.
+5. Otherwise **returns** the checked object.
+
+**Step by step for this call:** tier "fast" → Haiku → fake response → log line written → stop reason is "end_turn" (fine) → returns "payroll_run".
+
+**Result:** the log line, then ~payroll_run~. Model choice, logging and safety checks live in this one place for the whole project.
+~~~
 
 Like **one front desk** for all deliveries instead of every employee answering the door. Retries, logging, cost tracking, model choice, fallbacks (I06), tracing (I10) and company policy (A04) are all added **here**, once, and every feature benefits.
 
@@ -1068,6 +1480,16 @@ print(content[0].type)                                            # not text!
 print("".join(b.text for b in content if b.type == "text"))       # the safe way
 # → tool_use
 # → Checking the policy...
+~~~
+~~~explain
+**What it's for:** showing why you filter content blocks by type instead of assuming ~content[0]~ is text.
+
+**Step by step:**
+1. The response's first block is a tool request, the second is text.
+2. ~content[0].type~ → "tool_use": reading ~content[0].text~ here would crash (tool blocks have no text).
+3. The join over text blocks only picks the second block's text.
+
+**Result:** ~tool_use~, then ~Checking the policy...~.
 ~~~
 
 ~~~quiz
@@ -1101,6 +1523,23 @@ for n, body in enumerate(["Staff weren't PAID today", "Question about an invoice
 # → #1 payroll_run  0.94 → payroll-runs
 # → #2 billing      0.55 → general
 # → #3 other        0.80 → general
+~~~
+~~~explain
+**What it's for:** B01's whole flow in one runnable block, using everything from lessons 2–15.
+
+**Function ~fake_triage(body)~:** stands in for the AI. It lowercases the text, then returns a (category, confidence) pair: "paid" → (payroll_run, 0.94); "invoice" → (billing, 0.55); anything else → (other, 0.80).
+
+**The loop:** ~enumerate(..., start=1)~ numbers the tickets; each is cleaned (~strip~) and capped (~[:8000]~), triaged, then routed: use the table if confidence ≥ 0.6, otherwise "general".
+
+| # | ticket | category, confidence | ≥ 0.6? | queue |
+|---|---|---|---|---|
+| 1 | Staff weren't PAID today | payroll_run, 0.94 | yes | payroll-runs |
+| 2 | Question about an invoice | billing, 0.55 | **no** | general |
+| 3 | Love the new app | other, 0.80 | yes | general (that's other's queue) |
+
+~{category:<12}~ pads the category to 12 characters so the columns line up.
+
+**Result:** three routed tickets. Ticket 1 shows why we lowercase first ("PAID" still matches "paid"); ticket 2 shows the confidence floor sending an unsure answer to humans.
 ~~~
 
 Take the [Python checkpoint](#/checkpoint/python) to be sure, then on to the Foundations.

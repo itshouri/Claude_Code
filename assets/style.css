@@ -413,3 +413,13 @@ pre code .out, pre code .hljs-comment.out { color: var(--out); font-style: norma
 .quiz-why { font-size: 14px; margin-top: 8px; }
 .lock-note { display: flex; align-items: center; gap: 8px; padding: 14px; margin: 8px 0 20px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); }
 .lock-note .ico { width: 18px; height: 18px; flex: none; }
+
+/* "How this code works" panel, joined to the code block above it */
+.explain { border: 1px solid var(--border); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); background: var(--bg-soft); padding: 10px 16px 4px; margin: -17px 0 18px; font-size: 14.5px; }
+.explain-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); margin-bottom: 6px; }
+.explain-head .ico { width: 15px; height: 15px; }
+.explain p, .explain li { margin-bottom: 6px; }
+.explain table { font-size: 13.5px; margin-bottom: 10px; }
+.explain td, .explain th { padding: 4px 8px; }
+.explain th { background: var(--bg); }
+pre:has(+ .explain) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }

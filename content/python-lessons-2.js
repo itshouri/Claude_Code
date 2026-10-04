@@ -25,6 +25,16 @@ print("ticket handled")                        # not indented: always
 # → log it for the weekly review
 # → ticket handled
 ~~~
+~~~explain
+**What it's for:** the simplest version of "the AI proposes, code decides": if the AI is unsure, a human takes over.
+
+**Step by step:**
+1. The AI's confidence is 0.42.
+2. ~if confidence < 0.6:~ asks "is 0.42 below 0.6?" Yes, so Python runs the two **indented** lines underneath.
+3. The last line isn't indented, so it's outside the ~if~ and runs no matter what.
+
+**Result:** both "unsure" lines, then "ticket handled". With a confidence of 0.9, only "ticket handled" would print.
+~~~
 
 ~~~quiz
 ? What does this print?
@@ -58,6 +68,19 @@ for score in [0.02, 0.97, 0.40]:
 # → 0.97 → block
 # → 0.4 → escalate to the stronger model
 ~~~
+~~~explain
+**What it's for:** I06's moderation cascade: publish clearly safe listings, block clearly bad ones, and send the unclear middle to a stronger (more expensive) model.
+
+**Step by step:** for each score, Python tests the rules top to bottom and stops at the first one that's true.
+
+| Round | score | score < 0.08? | score >= 0.93? | action |
+|---|---|---|---|---|
+| 1 | 0.02 | yes → stop | (not checked) | publish |
+| 2 | 0.97 | no | yes → stop | block |
+| 3 | 0.40 | no | no | escalate (the ~else~) |
+
+**Result:** each listing gets exactly one action. Only the unclear 0.40 listing pays for the expensive model.
+~~~
 
 This is a **cascade**: cheap and fast for the easy cases, expensive and careful only where needed.
 
@@ -81,6 +104,25 @@ print(reply(False, "chit-chat"))
 # → Let me find your appointment.
 # → A team member will text you back shortly.
 ~~~
+~~~explain
+**What it's for:** B04's SMS reply rules, where the order of the checks protects patients.
+
+**Function ~reply(emergency, intent)~:** takes two inputs and returns one reply text. It checks the rules in order and **returns as soon as one matches**, which also ends the function:
+1. If ~emergency~ is True → return the "we'll call you" message.
+2. Otherwise, if ~intent~ is one of reschedule/cancel/confirm → return "Let me find your appointment."
+3. Otherwise, if ~intent~ is "question" → return the FAQ answer.
+4. Otherwise → return the "a team member will text you" message.
+
+**The three calls:**
+
+| Call | emergency | intent | first matching rule | returned |
+|---|---|---|---|---|
+| 1 | True | reschedule | rule 1 | we'll call you |
+| 2 | False | cancel | rule 2 | Let me find your appointment. |
+| 3 | False | chit-chat | none → else | a team member will text you |
+
+**Result:** call 1 shows why emergency is checked first: the patient also asked to reschedule, but the emergency wins.
+~~~
 
 (~def~ makes a function, lesson 6. Here, focus on the ~if~ chain.)
 
@@ -102,6 +144,22 @@ for stop_reason in ["end_turn", "max_tokens", "refusal", "tool_use"]:
 # → refusal    model declined: send to a human
 # → tool_use   model wants to use a tool: run it and continue
 ~~~
+~~~explain
+**What it's for:** B01's gateway logic for every possible ~stop_reason~ (why the AI stopped writing).
+
+**Step by step:** the loop tries each of the four values to show which branch handles it.
+
+| Round | stop_reason | branch taken | meaning |
+|---|---|---|---|
+| 1 | end_turn | first ~if~ | use the answer |
+| 2 | max_tokens | first ~elif~ | answer cut off |
+| 3 | refusal | second ~elif~ | send to a human |
+| 4 | tool_use | ~else~ | run the tool |
+
+~{stop_reason:10}~ pads the name to 10 characters so the explanations line up.
+
+**Result:** one line per case. In the real gateway, each branch does something (use, raise an error, hand over, run a tool) instead of printing.
+~~~
 
 **One-line version** for simple choices: ~A if test else B~. B01's routing in one line:
 
@@ -111,6 +169,16 @@ category, confidence, CONFIDENCE_FLOOR = "payroll_run", 0.41, 0.6
 queue = "general" if confidence < CONFIDENCE_FLOOR else QUEUES[category]
 print(queue)
 # → general
+~~~
+~~~explain
+**What it's for:** B01's routing rule in one line.
+
+**Step by step:**
+1. Read it as: ~queue = ("general") if (confidence < CONFIDENCE_FLOOR) else (QUEUES[category])~.
+2. Python checks the middle first: is 0.41 < 0.6? Yes.
+3. So the value is the part **before** ~if~: ~"general"~. The lookup after ~else~ is skipped.
+
+**Result:** ~general~. If confidence were 0.9, the queue would be ~QUEUES["payroll_run"]~, i.e. ~payroll-runs~.
 ~~~
 
 ~~~quiz
@@ -149,7 +217,11 @@ print(queue)
 **Real problem: process a batch and add up the cost.**
 
 ~~~python
-calls = [{"ticket": "T-1", "cost": 0.0041}, {"ticket": "T-2", "cost": 0.0038}, {"ticket": "T-3", "cost": 0.0052}]
+calls = [
+    {"ticket": "T-1", "cost": 0.0041},
+    {"ticket": "T-2", "cost": 0.0038},
+    {"ticket": "T-3", "cost": 0.0052},
+]
 total = 0
 for c in calls:
     total += c["cost"]
@@ -159,6 +231,21 @@ print("batch cost:", round(total, 4))
 # → T-2 running total 0.0079
 # → T-3 running total 0.0131
 # → batch cost: 0.0131
+~~~
+~~~explain
+**What it's for:** adding up the cost of a batch of AI calls, showing the total as it grows.
+
+**Step by step:** ~total~ starts at 0; each round adds that call's cost and prints the running total.
+
+| Round | c["ticket"] | c["cost"] | total after | printed |
+|---|---|---|---|---|
+| 1 | T-1 | 0.0041 | 0.0041 | T-1 running total 0.0041 |
+| 2 | T-2 | 0.0038 | 0.0079 | T-2 running total 0.0079 |
+| 3 | T-3 | 0.0052 | 0.0131 | T-3 running total 0.0131 |
+
+After the loop ends, the un-indented last line prints the final total once. ~round(total, 4)~ hides tiny float noise.
+
+**Result:** the batch cost $0.0131. This is how you track spend per batch or per eval run.
 ~~~
 
 **Real problem (B01 eval): urgent recall.** Of the tickets that really were urgent, how many did the AI flag as urgent? Count with a loop:
@@ -174,6 +261,23 @@ for want, got in zip(golden, predicted):                     # zip walks both li
             urgent_hit += 1
 print(f"urgent recall {urgent_hit}/{urgent_total} = {urgent_hit / urgent_total:.0%}")
 # → urgent recall 2/3 = 67%
+~~~
+~~~explain
+**What it's for:** B01's most important metric: of the tickets that really were urgent, how many did the AI catch?
+
+**Step by step:** ~zip~ pairs each right answer with the AI's answer. Only rounds where the right answer is "urgent" count.
+
+| Round | want | got | want urgent? | got urgent? | urgent_total | urgent_hit |
+|---|---|---|---|---|---|---|
+| 1 | urgent | urgent | yes | yes | 1 | 1 |
+| 2 | normal | normal | no (skip) | | 1 | 1 |
+| 3 | urgent | normal | yes | **no** | 2 | 1 |
+| 4 | urgent | urgent | yes | yes | 3 | 2 |
+| 5 | low | low | no (skip) | | 3 | 2 |
+
+Then 2 ÷ 3 = 0.666…, shown as a percentage with no decimals.
+
+**Result:** ~urgent recall 2/3 = 67%~. Round 3 is the miss that matters: an urgent payroll ticket treated as normal.
 ~~~
 
 For B01, that **one** missed urgent ticket matters more than overall accuracy: missed payroll means people don't get paid.
@@ -192,6 +296,19 @@ for r in reviews:
             negative_service += 1
 print("negative service mentions:", negative_service)
 # → negative service mentions: 2
+~~~
+~~~explain
+**What it's for:** B03 counting how often "service" was criticised across all reviews, where each review has several mentions.
+
+**Step by step:** the outer loop takes one review at a time; for each review, the inner loop goes through all its mentions.
+
+| Review | mention | service AND negative? | negative_service |
+|---|---|---|---|
+| 1 | service, negative | yes | 1 |
+| 1 | food_quality, positive | no | 1 |
+| 2 | service, negative | yes | 2 |
+
+**Result:** ~2~. A loop inside a loop is how you count things nested inside other things.
 ~~~
 
 ~~~quiz
@@ -233,6 +350,21 @@ for attempt in range(1, max_attempts + 1):
 # → attempt 3: 0 error(s)
 # → valid: create the draft
 ~~~
+~~~explain
+**What it's for:** B02's repair loop: try the extraction, check it, and retry at most 3 times until it passes.
+
+**Step by step:** ~attempt_results~ pretends to be what validation found on each try. ~range(1, 4)~ gives attempts 1, 2, 3.
+
+| Round | attempt | errors | printed | stop? |
+|---|---|---|---|---|
+| 1 | 1 | 1 error | attempt 1: 1 error(s) | no: errors remain |
+| 2 | 2 | 1 error | attempt 2: 1 error(s) | no |
+| 3 | 3 | none | attempt 3: 0 error(s), then "valid…" | yes: ~break~ |
+
+~attempt - 1~ converts the attempt number (1, 2, 3) into a list position (0, 1, 2). ~if not errors~ is true when the list is empty.
+
+**Result:** valid on the third try. If attempt 3 had also failed, the loop would simply end, and in B02 the invoice would go to a human with its error list.
+~~~
 
 **enumerate** gives each item a number. **Real problem (B04): offer numbered time slots by SMS** so the patient can reply "2":
 
@@ -248,6 +380,17 @@ print("booked:", slots[choice - 1])          # the patient's "2" is position 1
 # → 3) Fri Oct 16 11:00AM
 # → Reply with the number.
 # → booked: Wed Oct 14 02:30PM
+~~~
+~~~explain
+**What it's for:** B04 offering numbered time slots by SMS, then booking the one the patient picks.
+
+**Step by step:**
+1. ~enumerate(slots, start=1)~ pairs each slot with a number starting at 1: (1, Tue…), (2, Wed…), (3, Fri…).
+2. The comprehension turns each pair into a line like ~"1) Tue Oct 13 09:00AM"~.
+3. ~"\n".join(lines)~ puts the lines one under another; the heading and the instruction are added before and after.
+4. The patient replies "2". People count from 1, but list positions start at 0, so ~slots[choice - 1]~ = ~slots[1]~ = the Wednesday slot.
+
+**Result:** a ready-to-send SMS and the correct booking. Forgetting the ~- 1~ is a classic bug: the patient would get the Friday slot.
 ~~~
 
 ~~~quiz
@@ -283,6 +426,22 @@ for r in results:
 print("stored:", stored, "| to retry:", retry)
 # → stored: 2 | to retry: ['r2', 'r4']
 ~~~
+~~~explain
+**What it's for:** B03 collecting batch results: store the good ones, list the failed ones for a retry, never stop early.
+
+**Step by step:**
+
+| Round | id | status | action | stored | retry |
+|---|---|---|---|---|---|
+| 1 | r1 | succeeded | store | 1 | [] |
+| 2 | r2 | errored | add to retry, ~continue~ | 1 | [r2] |
+| 3 | r3 | succeeded | store | 2 | [r2] |
+| 4 | r4 | expired | add to retry, ~continue~ | 2 | [r2, r4] |
+
+~continue~ jumps straight to the next round, so ~stored += 1~ is skipped for failed results.
+
+**Result:** 2 stored, r2 and r4 queued for the next batch.
+~~~
 
 **Real problem (A03): stop when the budget runs out.**
 
@@ -298,6 +457,20 @@ for step, cost in enumerate([0.30, 0.45, 0.40, 0.20], start=1):
 # → step 2: spent $0.75
 # → step 3: spent $1.15
 # → budget exhausted before step 4
+~~~
+~~~explain
+**What it's for:** A03 stopping a research agent when its budget runs out.
+
+**Step by step:** before each step, check the budget; if it's not used up, spend and print.
+
+| Round | step | cost | spent before | spent ≥ 1.0? | spent after |
+|---|---|---|---|---|---|
+| 1 | 1 | 0.30 | 0.00 | no | 0.30 |
+| 2 | 2 | 0.45 | 0.30 | no | 0.75 |
+| 3 | 3 | 0.40 | 0.75 | no | 1.15 |
+| 4 | 4 | 0.20 | 1.15 | **yes** → print and ~break~ | |
+
+**Result:** the agent stops before step 4. Notice it went slightly over (1.15) because the check happens *before* each step; real budgets often check "would this step go over?" too.
 ~~~
 
 **for...else**: the ~else~ of a loop runs only if the loop finished **without** ~break~. **Real problem (I02): the agent's step budget.** If the agent never finished within 8 steps, hand over to a human:
@@ -316,6 +489,16 @@ else:
 # → agent step 2
 # → agent step 3
 # → step budget exhausted: hand over to a human
+~~~
+~~~explain
+**What it's for:** I02's safety net: if the agent hasn't finished after its maximum number of steps, hand over to a human.
+
+**Step by step:**
+1. ~range(3)~ gives steps 0, 1, 2; each prints "agent step" with a human-friendly number (step + 1).
+2. ~finished_at = None~ means "never finishes", so ~step == finished_at~ is never true and ~break~ never runs.
+3. Because the loop ran out **without** a ~break~, the ~else~ block under the ~for~ runs.
+
+**Result:** three steps, then the hand-over message. If the agent had finished (break), the ~else~ would be skipped.
 ~~~
 
 ~~~quiz
@@ -373,6 +556,23 @@ print(len(messages), "messages in the conversation")
 # → FINAL: Your sofa can come Tuesday 9am or Wednesday 2pm.
 # → 3 messages in the conversation
 ~~~
+~~~explain
+**What it's for:** the real shape of I02's agent loop, with pretend model replies so you can see every step.
+
+**Function ~run_tool(name, args)~:** takes the tool's name and its inputs, and returns a short text describing the result. (In I02 this is the dispatcher that really looks up the order, after checking it belongs to this customer.)
+
+**The loop, round by round:**
+
+| Round | resp (pretend model) | stop_reason is "tool_use"? | what happens |
+|---|---|---|---|
+| 1 | asks for get_order | yes | run it, print step 1, append the result to messages |
+| 2 | asks for delivery_slots | yes | run it, print step 2, append the result |
+| 3 | final text | no | print FINAL and ~break~ |
+
+The ~else~ (hand over) doesn't run, because the loop ended with ~break~.
+
+**Result:** two tool steps, a final answer, and 3 messages in the conversation (the question plus two tool results). In real code, ~fake_replies[step]~ is replaced by a call to Claude with the full ~messages~ list.
+~~~
 
 Every agent in the lab has these parts: a **step budget** (~range(MAX_STEPS)~), a **stop test** (~stop_reason~), **plain code that runs the tools** (where permissions and policies are checked), and a **fallback** (~else~: hand over to a human). Lesson 15 shows the real API version.
 
@@ -402,6 +602,21 @@ print("gave up" if not visible else f"visible after {checks} checks")
 # → check 3 visible: True
 # → visible after 3 checks
 ~~~
+~~~explain
+**What it's for:** A01's "wait until the change is visible, but give up after a limit".
+
+**Step by step:** the loop repeats **while** both are true: not visible yet, and fewer than 10 checks.
+
+| Round | checks | checks ≥ 3? → visible | printed | keep going? |
+|---|---|---|---|---|
+| 1 | 1 | False | check 1 visible: False | yes |
+| 2 | 2 | False | check 2 visible: False | yes |
+| 3 | 3 | True | check 3 visible: True | no: visible |
+
+After the loop, the one-line choice prints "visible after 3 checks" (it would print "gave up" if 10 checks passed without success).
+
+**Result:** visible after 3 checks. The ~checks < max_checks~ part guarantees the loop can never run forever.
+~~~
 
 Notice the **two** conditions: the thing we're waiting for, **and** a limit. A ~while~ without a limit can run (and spend money) forever.
 
@@ -416,6 +631,20 @@ for key in ["claim-7:doc-2:extract:v3", "claim-7:doc-5:extract:v3"]:
         print(key, "→ call the AI")
 # → claim-7:doc-2:extract:v3 → reuse police_report
 # → claim-7:doc-5:extract:v3 → call the AI
+~~~
+~~~explain
+**What it's for:** A02 reusing a saved AI result instead of paying for the same call again.
+
+**Step by step:**
+
+| Round | key | results.get(key) | branch | printed |
+|---|---|---|---|---|
+| 1 | …doc-2… | the saved dict | found → reuse | reuse police_report |
+| 2 | …doc-5… | None | not found → call | call the AI |
+
+~(cached := results.get(key))~ looks the key up **and** stores the answer in ~cached~ in one go, so the next line can use ~cached["doc_type"]~ without looking it up twice.
+
+**Result:** the first document is free; only the second needs an AI call. This makes retries safe and cheap.
 ~~~
 
 Read ~(cached := results.get(key))~ as "look it up, store it in ~cached~, then check it". This makes a retried step safe and free: it's part of **idempotency** (doing it twice has the same effect as once).
@@ -446,6 +675,21 @@ print("after the loop:", passed)          # prints once
 # → inside the loop: 1
 # → inside the loop: 2
 # → after the loop: 2
+~~~
+~~~explain
+**What it's for:** showing how indentation decides whether a line runs every round or once.
+
+**Step by step:**
+
+| Round | s | s ≥ 0.6? | passed | printed (indented line) |
+|---|---|---|---|---|
+| 1 | 0.9 | yes | 1 | inside the loop: 1 |
+| 2 | 0.4 | no | 1 | inside the loop: 1 |
+| 3 | 0.7 | yes | 2 | inside the loop: 2 |
+
+The last ~print~ isn't indented, so it runs once, after the loop.
+
+**Result:** three "inside" lines and one "after" line. If you want a single total, the print belongs outside the loop.
 ~~~
 
 ~~~quiz
@@ -533,6 +777,23 @@ print(route("refunds", 0.95))
 # → general
 # → general
 ~~~
+~~~explain
+**What it's for:** B01's routing rule packaged as a function, so every part of the project routes tickets the same way.
+
+**Function ~route(category, confidence)~:** takes the AI's label and its confidence, and returns a queue name.
+1. If the confidence is below 0.6, it **returns** ~"general"~ straight away (the function ends here).
+2. Otherwise, it looks the category up in a small table and returns the queue, or ~"general"~ if the label isn't in the table.
+
+**The three calls:**
+
+| Call | category | confidence | below 0.6? | in table? | returns |
+|---|---|---|---|---|---|
+| 1 | payroll_run | 0.91 | no | yes | payroll-runs |
+| 2 | payroll_run | 0.40 | **yes** | (not checked) | general |
+| 3 | refunds | 0.95 | no | **no** | general |
+
+**Result:** one confident known label goes to its team; an unsure answer and an unknown label both go to humans.
+~~~
 
 ~~~quiz
 ? Type exactly what ~route("billing", 0.75)~ returns, using the function above.
@@ -566,6 +827,21 @@ print(round(cost_of("claude-opus-5-5", 2_000, 300) / cost_of("claude-haiku-4-5",
 # → 0.014
 # → 4.0 × more
 ~~~
+~~~explain
+**What it's for:** one shared cost formula (A04's ledger), so nobody computes cost differently.
+
+**Function ~cost_of(model, input_tokens, output_tokens)~:**
+1. Looks up the model's two prices in ~PRICE~ and unpacks them into ~p_in~ and ~p_out~.
+2. Multiplies each token count by its price, adds them, divides by a million (prices are per million tokens).
+3. **Returns** the cost in dollars.
+
+**The calls:**
+1. Haiku: (2,000 × 1.0 + 300 × 5.0) ÷ 1,000,000 = 3,500 ÷ 1,000,000 = 0.0035.
+2. Opus: (2,000 × 4.0 + 300 × 20.0) ÷ 1,000,000 = 14,000 ÷ 1,000,000 = 0.014.
+3. The third line calls both and divides: 0.014 ÷ 0.0035 = 4.0.
+
+**Result:** the same call is 4× more expensive on Opus. Numbers like this drive the "which model for which task" decision.
+~~~
 
 **return vs print.** ~print~ only shows a value; ~return~ hands it back so code can use it. A function without ~return~ gives back ~None~:
 
@@ -583,6 +859,21 @@ print("a month of that:", b * 30)
 # → 0.5
 # → a: None | b: 0.5
 # → a month of that: 15.0
+~~~
+~~~explain
+**What it's for:** the difference between showing a value (~print~) and handing it back (~return~).
+
+**Function ~cost_printed(tokens)~:** works out the cost and **prints** it, but has no ~return~, so it hands back ~None~.
+
+**Function ~cost_returned(tokens)~:** works out the cost and **returns** it, printing nothing.
+
+**Step by step:**
+1. ~a = cost_printed(500_000)~: the function prints 0.5 while running; ~a~ receives ~None~.
+2. ~b = cost_returned(500_000)~: nothing printed; ~b~ receives 0.5.
+3. The third print shows ~a~ is ~None~ and ~b~ is 0.5.
+4. ~b * 30~ works (15.0). ~a * 30~ would crash, because you can't multiply ~None~.
+
+**Result:** if other code needs the value, the function must ~return~ it.
 ~~~
 
 ~~~quiz
@@ -613,6 +904,22 @@ print(parse("Parse SMS.", "<sms>...</sms>", "ParsedMessage", tier="fast", max_to
 # ✗ TypeError: parse() takes 3 positional arguments but 4 were given
 # → Triage via claude-opus-5-5 (max 2048 tokens)
 # → ParsedMessage via claude-haiku-4-5 (max 500 tokens)
+~~~
+~~~explain
+**What it's for:** the signature of B01's gateway function: required inputs first, optional settings that must be named.
+
+**Function ~parse(system, user, schema, *, tier="smart", max_tokens=2048)~:**
+- ~system~, ~user~, ~schema~ are required and can be given by position.
+- The lone ~*~ means everything after it must be given **by name**.
+- ~tier~ and ~max_tokens~ have defaults, so they can be left out.
+- This pretend version just **returns** a sentence saying which model and limit would be used (it looks the model up in ~MODELS~ by tier).
+
+**The calls:**
+1. Only the three required inputs → defaults used: smart tier (Opus), 2048 tokens.
+2. ~tier="fast", max_tokens=500~ named → Haiku with 500 tokens.
+3. The commented-out call passes ~"fast"~ without a name. Python refuses (~TypeError~), because after the ~*~ only named inputs are allowed.
+
+**Result:** in a function called from many files, naming the settings prevents silent mix-ups.
 ~~~
 
 The lone ~*~ in the definition means: **everything after it must be given by name**. So callers must write ~tier="fast"~, never just ~"fast"~. In a function called from 50 places, that stops silent mix-ups (was ~500~ the max tokens or something else?). The projects' gateway uses exactly this signature.
@@ -662,6 +969,30 @@ for printed in ["1,234.50", "1.234,50", "1234,50", " 99.9 "]:
 # → '1234,50'    → 1234.50
 # → ' 99.9 '     → 99.9
 ~~~
+~~~explain
+**What it's for:** B02 turning an amount "as printed" on an invoice into an exact number, whatever country's format it uses.
+
+**Function ~money(s)~:** takes the printed text and returns a ~Decimal~.
+1. Removes outer spaces and any spaces inside.
+2. If the text has **both** a comma and a dot, whichever comes **last** is the decimal mark:
+   - comma last (European ~1.234,50~): delete the dots, turn the comma into a dot;
+   - dot last (US ~1,234.50~): delete the commas.
+3. If it has only a comma (~1234,50~), the comma is the decimal mark: turn it into a dot.
+4. Turns the cleaned text into a ~Decimal~ and **returns** it.
+
+**The loop:**
+
+| printed | rule used | cleaned | returned |
+|---|---|---|---|
+| '1,234.50' | both, dot last | 1234.50 | 1234.50 |
+| '1.234,50' | both, comma last | 1234.50 | 1234.50 |
+| '1234,50' | only a comma | 1234.50 | 1234.50 |
+| ' 99.9 ' | neither (just strip) | 99.9 | 99.9 |
+
+~{printed!r:12}~ shows the input with quotes, padded to 12 characters so the arrows line up.
+
+**Result:** three different formats become the same exact amount. The AI only copies text; plain code does the maths.
+~~~
 
 This is a perfect job for **plain code**: exact, testable, free. The AI copies the amount "as printed"; the function does the maths.
 
@@ -707,6 +1038,24 @@ for r in reasons:
 # → - Estimate 7200.00 above STP limit
 # → - Fraud indicators present: SIU review
 ~~~
+~~~explain
+**What it's for:** A02's fast-track rule: pay a claim automatically only if no rule fails, and explain any failure.
+
+**Function ~stp_decision(injury, estimate_total, fraud_indicators)~:**
+1. Starts an empty ~reasons~ list.
+2. Checks three rules; each failing rule adds a reason.
+3. **Returns** two things: ~not reasons~ (True only if the list is empty) and the list itself.
+
+**Call 1:** no injury, 2,840 (under 6,000), no fraud signals → no reasons → returns ~(True, [])~.
+
+**Call 2:**
+- no injury → no reason;
+- 7,200 > 6,000 → "Estimate 7200.00 above STP limit";
+- fraud list isn't empty → "Fraud indicators present: SIU review";
+- returns ~(False, [those two reasons])~. The loop prints each reason.
+
+**Result:** the function can only say "fast-track" or "a person decides, and here's why". It never says "deny": risky outcomes stay with people.
+~~~
 
 Notice the design: the function can only say "fast-track" or "a person decides". It never says "deny". Keeping risky outcomes with humans is a decision you'll make in every project.
 
@@ -742,6 +1091,23 @@ print(triage_ticket("How do I export a report?", llm=fake_llm))
 # → payroll_run
 # → other
 ~~~
+~~~explain
+**What it's for:** B01's way of making AI code testable: the model is an **input** you can swap.
+
+**Function ~real_llm(prompt)~:** stands in for the real paid AI. Here it just raises an error, to show it's never called in this example.
+
+**Function ~triage_ticket(body, llm=real_llm)~:**
+1. Wraps the first 8,000 characters of the ticket in tags to build the prompt.
+2. Calls whatever function was passed in as ~llm~ (the real one by default) and **returns** its answer.
+
+**Function ~fake_llm(prompt)~:** a test stand-in: returns ~"payroll_run"~ if the prompt contains "paid", otherwise ~"other"~. No network, no cost, always the same answer.
+
+**The calls:** both pass ~llm=fake_llm~, so the fake is used instead of the real AI:
+1. The prompt contains "paid" → ~payroll_run~.
+2. No "paid" → ~other~.
+
+**Result:** the code around the AI can be tested quickly and for free. In production you just call ~triage_ticket(body)~ and the default (real) model is used.
+~~~
 
 In production the default (the real gateway) is used; in tests you pass a fake. Like a **flight simulator** plugged into the same cockpit: the pilot's controls don't change, only what's behind them. This is called **dependency injection**, and lesson 14 builds on it.
 
@@ -766,6 +1132,17 @@ top = sorted(table, key=lambda r: r["negative"], reverse=True)[:3]
 print([r["aspect"] for r in top])
 # → ['wait_time', 'service', 'cleanliness']
 ~~~
+~~~explain
+**What it's for:** B03 finding the three most-complained-about aspects for the monthly report.
+
+**Step by step:**
+1. ~sorted(table, key=lambda r: r["negative"], reverse=True)~ sorts the rows by their ~negative~ count, biggest first. The ~lambda~ is a tiny function that tells ~sorted~ "compare rows by this number".
+2. Sorted order: wait_time (22), service (14), cleanliness (9), price_value (5).
+3. ~[:3]~ keeps the first three.
+4. The comprehension takes just the ~aspect~ name from each row.
+
+**Result:** ~['wait_time', 'service', 'cleanliness']~.
+~~~
 
 **Real problem (I01): combining two search rankings** (reciprocal rank fusion). Each document gets points for ranking high in either list; then sort by points:
 
@@ -780,6 +1157,24 @@ ranked = sorted(scores, key=scores.get, reverse=True)
 print(ranked)
 # → ['kb-40', 'kb-12', 'kb-3', 'kb-7']
 ~~~
+~~~explain
+**What it's for:** I01 combining two search result lists into one ranking (reciprocal rank fusion): documents high in **both** lists win.
+
+**Step by step:** each document gets ~1 / (60 + rank + 1)~ points per list it appears in (rank 0 = top). ~scores.get(doc_id, 0.0)~ starts new documents at 0.
+
+| List | rank | doc | points added | running score |
+|---|---|---|---|---|
+| keyword | 0 | kb-12 | 1/61 ≈ 0.0164 | 0.0164 |
+| keyword | 1 | kb-40 | 1/62 ≈ 0.0161 | 0.0161 |
+| keyword | 2 | kb-7 | 1/63 ≈ 0.0159 | 0.0159 |
+| vector | 0 | kb-40 | 1/61 ≈ 0.0164 | 0.0325 |
+| vector | 1 | kb-3 | 1/62 ≈ 0.0161 | 0.0161 |
+| vector | 2 | kb-12 | 1/63 ≈ 0.0159 | 0.0323 |
+
+Then ~sorted(scores, key=scores.get, reverse=True)~ sorts the document ids by their score, highest first.
+
+**Result:** ~['kb-40', 'kb-12', 'kb-3', 'kb-7']~. kb-40 and kb-12 appear in both lists, so they beat documents found by only one method.
+~~~
 
 ~key=scores.get~ means "sort the ids by their score". kb-40 wins: it ranked high in **both** lists.
 
@@ -790,6 +1185,17 @@ changes = [("doc-1", ["anna", "ben", "cy"]), ("doc-2", []), ("doc-3", ["anna"])]
 changes.sort(key=lambda c: len(c[1]))
 print([doc for doc, allowed in changes])
 # → ['doc-2', 'doc-3', 'doc-1']
+~~~
+~~~explain
+**What it's for:** A01 applying permission changes that **remove** access before ones that add it.
+
+**Step by step:**
+1. Each change is (document, list of allowed people).
+2. ~changes.sort(key=lambda c: len(c[1]))~ sorts the list **in place** by how many people are allowed: ~c[1]~ is the allowed list, ~len~ counts it.
+3. Counts: doc-2 → 0, doc-3 → 1, doc-1 → 3.
+4. The comprehension prints just the document names in the new order.
+
+**Result:** ~['doc-2', 'doc-3', 'doc-1']~. Shrinking access first means there's never a moment where a document is more open than intended.
 ~~~
 
 ~~~quiz
@@ -818,6 +1224,17 @@ record(388)
 print(STATS)
 # → {'calls': 2, 'tokens': 800}
 ~~~
+~~~explain
+**What it's for:** a dictionary at the top of the file that every function shares, used for running statistics (I06's gateway keeps one).
+
+**Function ~record(tokens)~:** adds 1 to the call count and the token count to the token total in the shared ~STATS~ dict. It returns nothing (~-> None~); its job is to update ~STATS~.
+
+**Step by step:**
+1. ~record(412)~ → calls 1, tokens 412.
+2. ~record(388)~ → calls 2, tokens 800.
+
+**Result:** ~{'calls': 2, 'tokens': 800}~. Any function in the file can read these totals.
+~~~
 
 Names created **inside** a function exist only while it runs:
 
@@ -830,6 +1247,18 @@ print(compute())
 # print(cost)
 # ✗ NameError: name 'cost' is not defined
 # → 0.004
+~~~
+~~~explain
+**What it's for:** showing that names created inside a function exist only while it runs.
+
+**Function ~compute()~:** creates a local name ~cost~ and returns its value.
+
+**Step by step:**
+1. ~compute()~ runs, returns 0.004, and ~print~ shows it.
+2. When the function ends, its local name ~cost~ disappears.
+3. ~print(cost)~ outside the function (commented out) fails: ~NameError~.
+
+**Result:** ~0.004~. To use a value outside a function, ~return~ it and store it.
 ~~~
 
 ~~~quiz
@@ -855,6 +1284,17 @@ print(route)            # the function itself
 print(route(0.9))       # its result
 # → <function route at 0x7f...>   (the number varies)
 # → billing
+~~~
+~~~explain
+**What it's for:** spotting a forgotten pair of brackets.
+
+**Function ~route(c)~:** returns ~"general"~ if ~c~ is below 0.6, otherwise ~"billing"~.
+
+**Step by step:**
+1. ~print(route)~ prints the function **itself** (its name and where it lives in memory), because there are no brackets.
+2. ~print(route(0.9))~ calls it: 0.9 isn't below 0.6, so it returns ~"billing"~.
+
+**Result:** if your log shows ~<function ...>~, you forgot to call the function.
 ~~~
 
 ~~~quiz
@@ -930,6 +1370,19 @@ safe = [c for c in citations if c in permitted]
 print(safe)
 # → ['doc-40', 'doc-12']
 ~~~
+~~~explain
+**What it's for:** A01's rule in one line: keep only the citations this user is allowed to see.
+
+**How to read it:** ~[c for c in citations if c in permitted]~ = "make a new list: for each ~c~ in ~citations~, keep ~c~ if it's in ~permitted~".
+
+| c | in permitted? | kept? |
+|---|---|---|
+| doc-40 | yes | yes |
+| doc-99 | no | no |
+| doc-12 | yes | yes |
+
+**Result:** ~['doc-40', 'doc-12']~. It does exactly what a 4-line ~for~ loop with ~append~ would do.
+~~~
 
 Read it from the middle: "**for each** c **in** citations, **if** c is permitted, **keep** c." That's A01's real rule: never show a source the user isn't allowed to see.
 
@@ -957,6 +1410,17 @@ print(repr(text))
 # → ['get_order', 'search_policy']
 # → 'Let me look that up. '
 ~~~
+~~~explain
+**What it's for:** the two lines every agent uses to split a Claude response into tool requests and text.
+
+**Step by step:**
+1. ~content~ is a list of three blocks: one text block and two tool requests.
+2. ~calls~: keep each block ~b~ whose type is "tool_use" → the get_order and search_policy blocks.
+3. ~text~: for each block whose type is "text", take its ~text~; ~"".join(...)~ glues the pieces together with nothing in between (here there's only one piece).
+4. The prints show the names of the requested tools and the text (with ~repr~, so the trailing space is visible).
+
+**Result:** the agent now knows which tools to run (~['get_order', 'search_policy']~) and what the model said.
+~~~
 
 Then you run each tool and build **one result per call**, matched by id, with another comprehension:
 
@@ -967,6 +1431,20 @@ for r in results:
     print(r["tool_use_id"], r["content"])
 # → tu_1 (output of get_order)
 # → tu_2 (output of search_policy)
+~~~
+~~~explain
+**What it's for:** building one tool result per tool request, each tagged with the id of the request it answers.
+
+**Step by step:** the comprehension goes through ~calls~ and builds a new dict for each:
+
+| c["id"] | c["name"] | dict built |
+|---|---|---|
+| tu_1 | get_order | type tool_result, tool_use_id tu_1, content "(output of get_order)" |
+| tu_2 | search_policy | type tool_result, tool_use_id tu_2, content "(output of search_policy)" |
+
+Then the loop prints each result's id and content.
+
+**Result:** two results, each matched to its request by id. I02 sends both back to the model in **one** message.
 ~~~
 
 I02 sends **all** these results back in **one** message: the model asked for two tools at once, so it gets both answers at once.
@@ -999,6 +1477,20 @@ print(docs)
 # → <doc id="kb-12#0" title="ACH returns">Returns post within 2 business days.</doc>
 # → <doc id="kb-40#1" title="Wire limits">Daily wire limit is $25,000.</doc>
 ~~~
+~~~explain
+**What it's for:** I01 putting retrieved documents into the prompt, each wrapped in a tag with its id so the AI can cite it.
+
+**Step by step:**
+1. For each hit ~h~, the f-string builds ~<doc id="…" title="…">text</doc>~. (The outer single quotes let the double quotes inside appear in the text.)
+2. ~"\n".join(...)~ puts each document on its own line.
+
+| h["id"] | line built |
+|---|---|
+| kb-12#0 | ~<doc id="kb-12#0" title="ACH returns">Returns post within 2 business days.</doc>~ |
+| kb-40#1 | ~<doc id="kb-40#1" title="Wire limits">Daily wire limit is $25,000.</doc>~ |
+
+**Result:** a block of documents ready to paste into the prompt between ~<documents>~ tags.
+~~~
 
 **Real problem (A01): only the last 6 turns, each cut to 400 characters**, as one block of text for the query rewriter:
 
@@ -1011,6 +1503,16 @@ print(h)
 # → user: Where's the torque spec for part X-200?
 # → assistant: It's 45 Nm, per the 2025 manual.
 # → user: And for the newer one?
+~~~
+~~~explain
+**What it's for:** A01 turning recent chat history into compact text for the query rewriter.
+
+**Step by step:**
+1. ~history[-6:]~ takes at most the last 6 messages (here all 3).
+2. For each message ~t~, the f-string writes ~role: content~, with the content cut to 400 characters (~[:400]~) so one long message can't take over.
+3. ~"\n".join(...)~ puts each on its own line.
+
+**Result:** three lines like a chat transcript. The rewriter can now see that "the newer one" refers to part X-200.
 ~~~
 
 ~~~quiz
@@ -1034,6 +1536,21 @@ print(problems)
 # → Wire limit $25k.
 # → ['bad citation kb-77']
 ~~~
+~~~explain
+**What it's for:** I01 checking the AI only cited documents that were actually retrieved.
+
+**Step by step:**
+1. ~by_id = {h["id"]: h["text"] for h in hits}~ builds a dict: id → text. Now any document's text can be found by id instantly.
+2. ~ai_citations~ is what the AI cited.
+3. ~problems~ keeps a message for each citation **not** in ~by_id~:
+
+| c | in by_id? | added to problems? |
+|---|---|---|
+| kb-40 | yes | no |
+| kb-77 | no | "bad citation kb-77" |
+
+**Result:** kb-40's text, and a list with one problem. The AI cited a document it was never given: a sign of hallucination.
+~~~
 
 **Real problem (A04): forward only allowed settings** from a team's request to the AI provider:
 
@@ -1043,6 +1560,20 @@ request = {"system": "Summarise.", "messages": [], "max_tokens": 800, "admin_ove
 body = {k: v for k, v in request.items() if k in PASS_THROUGH}
 print(body)
 # → {'system': 'Summarise.', 'messages': [], 'max_tokens': 800}
+~~~
+~~~explain
+**What it's for:** A04 forwarding only allowed settings from a team's request to the AI provider (an allowlist).
+
+**Step by step:** ~{k: v for k, v in request.items() if k in PASS_THROUGH}~ builds a new dict, copying each key-value pair only if the key is on the allowed list.
+
+| k | in PASS_THROUGH? | copied? |
+|---|---|---|
+| system | yes | yes |
+| messages | yes | yes |
+| max_tokens | yes | yes |
+| admin_override | no | **no** |
+
+**Result:** the sneaky ~admin_override~ never reaches the provider. Listing what's allowed is safer than trying to list everything that's forbidden.
 ~~~
 
 The sneaky ~admin_override~ never reaches the provider. An **allowlist** (only listed things pass) is safer than trying to block bad things one by one.
@@ -1056,6 +1587,19 @@ per_class_recall = {c: round(hits[c] / totals[c], 2) for c in totals}
 print(per_class_recall)
 # → {'billing': 0.9, 'payroll_run': 0.97, 'technical': 0.75}
 ~~~
+~~~explain
+**What it's for:** B01's per-category recall: for each category, the share of tickets the AI got right.
+
+**Step by step:** for each category ~c~ in ~totals~, divide hits by total and round to 2 decimals:
+
+| c | hits | total | recall |
+|---|---|---|---|
+| billing | 45 | 50 | 0.9 |
+| payroll_run | 58 | 60 | 0.97 |
+| technical | 30 | 40 | 0.75 |
+
+**Result:** a dict of recall per category. "technical" is the weak spot, so that's where the next prompt improvement should focus.
+~~~
 
 "technical" is the weak spot: that's where the next prompt fix should go.
 
@@ -1066,6 +1610,16 @@ mentions = [{"aspect": "service", "polarity": "negative"}, {"aspect": "service",
             {"aspect": "food_quality", "polarity": "positive"}]
 print(sorted({(m["aspect"], m["polarity"]) for m in mentions}))
 # → [('food_quality', 'positive'), ('service', 'negative')]
+~~~
+~~~explain
+**What it's for:** B03 collecting the unique (aspect, polarity) pairs mentioned in a review.
+
+**Step by step:**
+1. The curly brackets without a colon build a **set**: for each mention, the pair ~(aspect, polarity)~.
+2. ("service", "negative") appears twice, but a set keeps only one copy.
+3. ~sorted(...)~ turns the set into an alphabetically sorted list for printing.
+
+**Result:** two unique pairs. B03 compares these sets between the AI and human reviewers.
 ~~~
 
 ~~~quiz
@@ -1091,6 +1645,17 @@ print(any(c["got"] == "technical" for c in cases))      # did the AI ever say "t
 # → False
 # → False
 ~~~
+~~~explain
+**What it's for:** an eval's headline numbers in a few lines.
+
+**Step by step:**
+1. ~c["want"] == c["got"]~ is ~True~ or ~False~ for each case: True, False, True, True.
+2. ~sum(...)~ counts the Trues (True counts as 1): 3. Then 3 ÷ 4 = 0.75, shown as 75%.
+3. ~all(...)~: is **every** case correct? Case 2 isn't → ~False~.
+4. ~any(...)~: did the AI **ever** answer "technical"? The answers were billing, billing, other, billing → ~False~.
+
+**Result:** ~3 75%~, ~False~, ~False~.
+~~~
 
 **Real problem (I01/I10): faithfulness score** = the share of the answer's claims that the documents support:
 
@@ -1098,6 +1663,16 @@ print(any(c["got"] == "technical" for c in cases))      # did the AI ever say "t
 judged = ["yes", "yes", "partially", "yes", "no"]
 print(sum(v == "yes" for v in judged) / len(judged))
 # → 0.6
+~~~
+~~~explain
+**What it's for:** I01/I10's faithfulness score: the share of the answer's claims the documents fully support.
+
+**Step by step:**
+1. For each verdict, ~v == "yes"~ gives True or False: T, T, F, T, F.
+2. ~sum(...)~ counts the Trues: 3. ("partially" doesn't count.)
+3. 3 ÷ 5 claims = 0.6.
+
+**Result:** ~0.6~: 60% of the claims are fully supported.
 ~~~
 
 **Real problem (I06): block if any image matches a known prohibited image:**
@@ -1108,6 +1683,18 @@ listing_images = ["77be", "9c0d", "12aa"]
 print(any(h in bad_hashes for h in listing_images))
 # → True
 ~~~
+~~~explain
+**What it's for:** I06 blocking a listing if any of its images is a known prohibited image.
+
+**Step by step:** ~any(...)~ checks each image hash in turn and stops at the first True:
+
+| h | in bad_hashes? |
+|---|---|
+| 77be | no |
+| 9c0d | **yes** → stop, answer True |
+
+**Result:** ~True~: block the listing. ~any~ only needs one match.
+~~~
 
 **Real problem (B02): a "perfect" invoice** = every field matched:
 
@@ -1117,6 +1704,16 @@ print(all(field_ok.values()))
 print([f for f, ok in field_ok.items() if not ok])
 # → False
 # → ['due_date']
+~~~
+~~~explain
+**What it's for:** B02's eval: was every field of an invoice extracted correctly?
+
+**Step by step:**
+1. ~field_ok.values()~ gives True, True, True, False.
+2. ~all(...)~ needs every one to be True; one is False → ~False~.
+3. The comprehension lists the field names whose value is not OK → ~['due_date']~.
+
+**Result:** not a "perfect" invoice, and you know exactly which field failed.
 ~~~
 
 ~~~quiz
@@ -1155,6 +1752,23 @@ for n, piece in enumerate(chunks(transcript, 30), start=1):
 # → 2 'ana owns the pricing page. Bo '
 # → 3 'will email legal.'
 ~~~
+~~~explain
+**What it's for:** splitting a long transcript into fixed-size pieces, one at a time (I01, B06).
+
+**Function ~chunks(text, size)~:** a **generator**. Instead of building a whole list, it uses ~yield~ to hand out one piece, pause, and continue from the same spot when the next piece is asked for.
+1. ~range(0, len(text), size)~ gives starting positions: 0, 30, 60.
+2. For each start, it yields ~text[start:start + size]~.
+
+**The loop:** ~enumerate(..., start=1)~ numbers the pieces as they come out.
+
+| n | start | piece |
+|---|---|---|
+| 1 | 0 | 'We agreed to ship v2 in May. D' |
+| 2 | 30 | 'ana owns the pricing page. Bo ' |
+| 3 | 60 | 'will email legal.' (the rest) |
+
+**Result:** three pieces. Notice "Dana" is cut in half: fixed-size splitting ignores meaning, which is why real chunkers split on headings or sentences, or overlap pieces (next example).
+~~~
 
 Notice chunk 1 cuts "Dana" in half! Real chunkers split on headings, paragraphs or sentences, and B06 lets chunks **overlap** so nothing said at a boundary is lost:
 
@@ -1172,6 +1786,22 @@ for piece in chunks_with_overlap("ABCDEFGHIJKL", 6, 2):
 # → EFGHIJ
 # → IJKL
 ~~~
+~~~explain
+**What it's for:** B06's overlapping chunks, so a sentence that falls on a boundary appears whole in at least one chunk.
+
+**Function ~chunks_with_overlap(text, size, overlap)~:**
+1. ~step = size - overlap~ = 6 − 2 = 4: each new chunk starts 4 characters after the last one, so consecutive chunks share 2 characters.
+2. For each start (0, 4, 8, …) it yields 6 characters.
+3. If that chunk reached the end of the text, it stops (~break~), so there's no tiny leftover chunk.
+
+| start | chunk | reached the end (start + 6 ≥ 12)? |
+|---|---|---|
+| 0 | ABCDEF | no |
+| 4 | EFGHIJ | no |
+| 8 | IJKL | yes → stop |
+
+**Result:** EF and IJ each appear in two chunks: that's the overlap.
+~~~
 
 **Real problem (A01): connectors yield changes since the last sync.** A generator lets the indexer process each changed document as it arrives, even if there are millions:
 
@@ -1185,6 +1815,21 @@ for doc_id, new_cursor in content_changes(cursor=6):
     print("re-index", doc_id, "→ cursor", new_cursor)
 # → re-index doc-2 → cursor 7
 # → re-index doc-3 → cursor 9
+~~~
+~~~explain
+**What it's for:** A01's connectors handing out only documents changed since the last sync.
+
+**Function ~content_changes(cursor)~:** a generator that goes through the documents and yields ~(doc_id, version)~ only for those with a version newer than ~cursor~.
+
+**The loop (cursor = 6):**
+
+| doc | version | newer than 6? | yielded? |
+|---|---|---|---|
+| doc-1 | 5 | no | no |
+| doc-2 | 7 | yes | yes |
+| doc-3 | 9 | yes | yes |
+
+**Result:** only doc-2 and doc-3 are re-indexed, and the new cursor (9) is remembered for next time. With millions of documents, handing them out one at a time keeps memory use small.
 ~~~
 
 ~~~quiz
@@ -1208,6 +1853,16 @@ print(list(gen))
 print(list(gen))          # already used up
 # → ['kb-1', 'kb-2']
 # → []
+~~~
+~~~explain
+**What it's for:** showing that a generator can only be used once.
+
+**Step by step:**
+1. ~(c for c in [...])~ with round brackets makes a generator.
+2. The first ~list(gen)~ pulls out every item: ~['kb-1', 'kb-2']~.
+3. The generator is now empty, so the second ~list(gen)~ gets nothing: ~[]~.
+
+**Result:** if you need the items twice, store them in a list first.
 ~~~
 
 ~~~quiz
@@ -1282,6 +1937,17 @@ Think of it like **departments in a company**: accounting doesn't do marketing's
 # from triage import PROMPT_VERSION, route, triage_ticket
 # → (nothing printed: imports just make names available)
 ~~~
+~~~explain
+**What it's for:** showing how B01's files borrow from each other (this block only describes the imports; nothing runs).
+
+**Step by step:**
+1. In ~triage.py~, ~import llm as default_llm~ loads the project's own ~llm.py~ and gives it a nickname, so the code writes ~default_llm.parse(...)~.
+2. ~from schema import Triage~ takes just the ~Triage~ class from ~schema.py~.
+3. ~from pathlib import Path~ and ~from string import Template~ borrow tools from Python's standard library.
+4. In ~evals/run_eval.py~, one line borrows three names from ~triage.py~.
+
+**Result:** nothing is printed: an import only makes names available. Each file keeps one job, and the others ask it for what they need.
+~~~
 
 | You write | Then you use it as |
 |---|---|
@@ -1306,6 +1972,18 @@ def evaluate(path: str) -> dict:
 if __name__ == "__main__":
     print(evaluate("evals/golden.jsonl"))
 # → {'path': 'evals/golden.jsonl', 'category_accuracy': 0.927}
+~~~
+~~~explain
+**What it's for:** a script that can run on its own **and** be imported by other files without side effects.
+
+**Function ~evaluate(path)~:** in a real project this would run the whole eval; here it returns a small dict with the file path and an accuracy score.
+
+**Step by step:**
+1. Python sets the hidden variable ~__name__~ to ~"__main__"~ when you start this file directly.
+2. ~if __name__ == "__main__":~ is therefore true, so it calls ~evaluate~ and prints the result.
+3. If another file did ~import~ this one, ~__name__~ would be the file's name instead, the ~if~ would be false, and nothing would run, but ~evaluate~ would be available to call.
+
+**Result:** the report is printed when you run the script; I10's CI gate can import ~evaluate~ without starting a run.
 ~~~
 
 "Run this only when the file is started directly (~python3 run_eval.py~), not when another file imports it." I10's CI gate imports the eval functions without running them. Like a **demo button** on an appliance: it runs in the shop, not every time the appliance is installed in a bigger kitchen.
@@ -1333,6 +2011,17 @@ print(json.dumps({"error": "No order with that id on this account."}))
 # → str
 # → {"error": "No order with that id on this account."}
 ~~~
+~~~explain
+**What it's for:** I02 turning a tool's result into JSON text, which is what gets sent back to the model.
+
+**Step by step:**
+1. ~order~ is a Python dict, with ~False~ and ~None~ values.
+2. ~json.dumps(order)~ converts it to JSON **text**. Notice the spelling changes: ~False~ → ~false~, ~None~ → ~null~, single quotes → double quotes.
+3. ~type(...)~ confirms the result is a ~str~ (text).
+4. Errors are turned into JSON the same way.
+
+**Result:** text the model can read reliably. When a tool fails, the model receives ~{"error": ...}~ and can explain it to the customer, instead of the conversation crashing.
+~~~
 
 Notice: ~false~, ~null~, double quotes. That's JSON spelling. Errors are returned as JSON too: the model reads them and explains them to the customer.
 
@@ -1348,6 +2037,20 @@ for text in ['{"overall": "negative", "mentions": []}', 'Sure! {"overall": "nega
         print("not valid JSON: retry this review")
 # → parsed: negative
 # → not valid JSON: retry this review
+~~~
+~~~explain
+**What it's for:** B03 reading the AI's JSON answers, and handling one that isn't valid JSON.
+
+**Step by step:**
+
+| Round | text | json.loads works? | what happens |
+|---|---|---|---|
+| 1 | a clean JSON object | yes | ~data["overall"]~ → print "parsed: negative" |
+| 2 | "Sure! " before the JSON | **no** → ~JSONDecodeError~ | the ~except~ prints "retry this review" |
+
+The ~try~/~except~ (lesson 9) catches the error so one bad answer doesn't stop the whole loop.
+
+**Result:** the good review is stored, the bad one is marked for retry. (Structured outputs, lesson 11, prevent most of these.)
 ~~~
 
 **Real problem (B03): hand the AI a table of numbers to write about**, readable with ~indent~:
@@ -1365,6 +2068,15 @@ print(json.dumps(agg, indent=1))
 # →   }
 # →  ]
 # → }
+~~~
+~~~explain
+**What it's for:** B03 handing the AI a table of finished numbers to write a report about.
+
+**Step by step:**
+1. ~agg~ holds the numbers code has already worked out.
+2. ~json.dumps(agg, indent=1)~ converts it to JSON text with line breaks and 1-space indents per level, so it's readable (by people and by the model).
+
+**Result:** neatly indented JSON. B03's rule: code computes the numbers, the AI only writes the words around them, so it can't get a number wrong.
 ~~~
 
 B03's rule: the AI **writes the words, code computes the numbers**. The model gets the finished numbers as JSON and is told not to calculate new ones.
@@ -1398,6 +2110,16 @@ print(counts.most_common(1))
 # → 3 0
 # → [('billing', 3)]
 ~~~
+~~~explain
+**What it's for:** counting how often each label was predicted.
+
+**Step by step:**
+1. ~Counter(predicted)~ counts each label: billing 3, technical 1, other 1.
+2. ~counts["billing"]~ → 3. ~counts["account_access"]~ → 0: a Counter returns 0 for things it never saw, instead of crashing like a normal dict.
+3. ~most_common(1)~ gives the single most frequent label and its count, as a list of pairs.
+
+**Result:** a quick picture of what the AI tends to answer. If one label dominates unexpectedly, something may be wrong with the prompt.
+~~~
 
 **Real problem (B01 eval): the confusion matrix** shows *which* categories get mixed up: ~confusion[expected][predicted]~. A ~defaultdict(Counter)~ creates an empty counter for every new expected label:
 
@@ -1413,6 +2135,25 @@ recall = {c: confusion[c][c] / sum(confusion[c].values()) for c in confusion}
 print({c: round(r, 2) for c, r in recall.items()})
 # → {'payroll_run': 2, 'billing': 1}
 # → {'payroll_run': 0.67, 'billing': 1.0, 'technical': 1.0}
+~~~
+~~~explain
+**What it's for:** B01's confusion matrix: for each right answer, which answers the AI gave.
+
+**Step by step:**
+1. ~defaultdict(Counter)~ is a dict that creates an empty Counter the first time a new key is used, so ~confusion[want][got] += 1~ always works.
+2. The loop fills it:
+
+| want | got | confusion after |
+|---|---|---|
+| payroll_run | payroll_run | payroll_run: {payroll_run 1} |
+| payroll_run | billing | payroll_run: {payroll_run 1, billing 1} |
+| billing | billing | billing: {billing 1} |
+| payroll_run | payroll_run | payroll_run: {payroll_run 2, billing 1} |
+| technical | technical | technical: {technical 1} |
+
+3. Recall per category = correct (~confusion[c][c]~) ÷ all tickets of that category (~sum(...values())~): payroll_run 2 ÷ 3 = 0.67; billing 1 ÷ 1; technical 1 ÷ 1.
+
+**Result:** you can see exactly what went wrong: one payroll ticket was labelled billing. That's the mix-up B01's prompt specifically warns about.
 ~~~
 
 One payroll ticket went to billing. That's exactly the confusion B01's prompt warns about ("if employees were paid wrong, it's payroll_run even if they say 'charge'").
@@ -1436,6 +2177,15 @@ agent_reply = "See help.ledgerly.example/articles/4412 and help.ledgerly.example
 print(re.findall(r"help\.ledgerly\.example/articles/(\d+)", agent_reply))
 # → ['4412', '980']
 ~~~
+~~~explain
+**What it's for:** I01 building an eval set from past tickets, by finding which help articles agents linked in their replies.
+
+**Step by step:**
+1. The pattern means: the literal text ~help.ledgerly.example/articles/~ (the ~\.~ means a real dot), then ~(\d+)~: one or more digits, captured.
+2. ~re.findall~ finds every match and returns just the captured part (the digits).
+
+**Result:** ~['4412', '980']~: the articles that answered this ticket, which become the "right answers" for the retrieval eval.
+~~~
 
 **Real problem (A04): block card numbers and mask account numbers** before text reaches the AI:
 
@@ -1449,6 +2199,17 @@ print(ACCOUNT.sub("<ACCOUNT>", "Balance for 004512345678 please"))
 # → True
 # → Balance for <ACCOUNT> please
 ~~~
+~~~explain
+**What it's for:** A04 stopping card numbers and account numbers from reaching the AI.
+
+**Step by step:**
+1. ~CARD~ matches 13 to 19 digits, each optionally followed by a space or dash (~(?:\d[ -]?){13,19}~), between word boundaries (~\b~).
+2. ~ACCOUNT~ matches a run of exactly 10 to 12 digits.
+3. ~CARD.search(msg)~ finds "4111 1111 1111 1111" in the message; ~bool(...)~ turns "found something" into ~True~.
+4. ~ACCOUNT.sub("<ACCOUNT>", ...)~ replaces every account number with the placeholder.
+
+**Result:** ~True~ (so A04 would reject this request) and a masked sentence. Plain code does this before the text ever leaves the company.
+~~~
 
 **Real problem (I06): flag banned phrases, ignoring capital letters** (~re.I~):
 
@@ -1461,6 +2222,20 @@ for title in ["Vintage lamp", "XANAX BARS cheap"]:
 # → Vintage lamp → ok
 # → XANAX BARS cheap → xanax bars
 ~~~
+~~~explain
+**What it's for:** I06 flagging listings that contain banned phrases, whatever the capitalisation.
+
+**Step by step:**
+1. The pattern matches "ghost gun" or "xanax bars" as whole words; ~re.I~ makes it ignore upper/lower case.
+2. For each title, ~BANNED.search(title)~ returns a match object if found, or ~None~.
+
+| title | match? | printed |
+|---|---|---|
+| Vintage lamp | None | ok |
+| XANAX BARS cheap | yes | ~m.group(1).lower()~ → xanax bars |
+
+**Result:** the second listing is flagged with the phrase it matched. I06 sends these to a human, because phrases can sometimes be innocent.
+~~~
 
 **Real problem (B05): turn a heading into a section id** the AI can cite:
 
@@ -1469,6 +2244,16 @@ import re
 title = "4.2 Parental Leave & Pay!"
 print(re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-"))
 # → 4-2-parental-leave-pay
+~~~
+~~~explain
+**What it's for:** B05 turning a handbook heading into a clean section id (a "slug") the AI can cite.
+
+**Step by step:**
+1. ~title.lower()~ → "4.2 parental leave & pay!"
+2. ~re.sub(r"[^a-z0-9]+", "-", ...)~ replaces every run of characters that are **not** a lowercase letter or digit with one dash: "4-2-parental-leave-pay-"
+3. ~.strip("-")~ removes dashes at the ends.
+
+**Result:** ~4-2-parental-leave-pay~: safe in links and easy for the AI to quote exactly.
 ~~~
 
 ~[^a-z0-9]+~ means "one or more characters that are NOT a letter or digit": each run becomes a single dash.
@@ -1501,6 +2286,17 @@ print(today + timedelta(days=4))          # "Thursday" from a Sunday
 # → <today>2026-10-04 (Sunday)</today>
 # → 2026-10-08
 ~~~
+~~~explain
+**What it's for:** B04 telling the AI today's date, so "next Thursday" can be resolved.
+
+**Step by step:**
+1. ~date(2026, 10, 4)~ creates the date 4 October 2026.
+2. ~isoformat()~ writes it as ~2026-10-04~; ~strftime('%A')~ gives the weekday name, Sunday.
+3. The f-string wraps both in a ~<today>~ tag for the prompt.
+4. ~today + timedelta(days=4)~ moves 4 days forward: Thursday 8 October.
+
+**Result:** a prompt line with the date and weekday, and the date of "Thursday". Models don't know today's date unless you tell them.
+~~~
 
 **Real problem (B04): never trust a date the AI produced.** Drop anything unreadable, in the past, or absurdly far away:
 
@@ -1527,6 +2323,27 @@ for d in ["2026-10-08", "2025-10-08", "2026-02-30", "next week", None]:
 # → 'next week' → None
 # → None → None
 ~~~
+~~~explain
+**What it's for:** B04 refusing to trust a date the AI produced unless it's real and sensible.
+
+**Function ~ok(d)~:** takes a date text (or ~None~) and returns the same text if it's acceptable, or ~None~ if not:
+1. If it's ~None~ → return ~None~.
+2. Try to read it as an ISO date; if that fails (~ValueError~) → return ~None~.
+3. If it's before today or more than 180 days away → return ~None~.
+4. Otherwise → return it unchanged.
+
+**The loop:**
+
+| d | what happens | returned |
+|---|---|---|
+| '2026-10-08' | valid, 4 days ahead | 2026-10-08 |
+| '2025-10-08' | valid but in the past | None |
+| '2026-02-30' | no 30 February → ValueError | None |
+| 'next week' | not an ISO date → ValueError | None |
+| None | rule 1 | None |
+
+**Result:** only one date survives. For the others, B04 asks the patient instead of booking something wrong.
+~~~
 
 **Real problem (I02): is the return inside the 30-day window?** Subtracting dates gives a gap in days:
 
@@ -1537,6 +2354,15 @@ print((today - delivered).days, "days since delivery")
 print("in window:", (today - delivered).days <= 30)
 # → 33 days since delivery
 # → in window: False
+~~~
+~~~explain
+**What it's for:** I02's 30-day return window.
+
+**Step by step:**
+1. Subtracting two dates gives the gap between them; ~.days~ is its length in days: from 1 September to 4 October is 33 days.
+2. ~33 <= 30~ → ~False~.
+
+**Result:** outside the window, so the return is refused (with a clear reason the agent can explain).
 ~~~
 
 ~~~quiz
@@ -1566,6 +2392,24 @@ print(content_hash("hello"), content_hash("hello"), content_hash("hello!"))
 # → ['kb-40#0']
 # → 2cf24dba5fb0 2cf24dba5fb0 ce06092fb948
 ~~~
+~~~explain
+**What it's for:** I01 skipping chunks whose text hasn't changed, so they aren't paid for again.
+
+**Function ~content_hash(text)~:** turns the text into bytes (~.encode()~), computes its SHA-256 fingerprint, and returns the first 12 characters. Same text → same fingerprint; any change → a completely different one.
+
+**Step by step:**
+1. ~stored~ holds the fingerprint saved last night for chunk kb-12#0.
+2. The comprehension keeps each chunk id whose stored fingerprint differs from the fingerprint of its new text:
+
+| cid | stored | new fingerprint | different? |
+|---|---|---|---|
+| kb-12#0 | fingerprint of the same text | identical | no → skip |
+| kb-40#0 | nothing stored (None) | something | yes → re-embed |
+
+3. The last line shows that "hello" always gives the same fingerprint and "hello!" a totally different one.
+
+**Result:** only ~kb-40#0~ needs embedding.
+~~~
 
 Only the new chunk is embedded; the unchanged one is skipped. The same trick builds **cache keys** for AI answers: same prompt + same model = same key = reuse the saved answer.
 
@@ -1594,6 +2438,17 @@ print([p.name for p in Path("prompts").glob("*.md")])
 # → You triage support tickets for $company.
 # → ['triage_v1.md']
 ~~~
+~~~explain
+**What it's for:** B01 loading the prompt file that matches the version constant.
+
+**Step by step:**
+1. The first two lines just create a ~prompts~ folder and a small prompt file, so the example can run.
+2. ~Path("prompts") / f"{PROMPT_VERSION}.md"~ joins folder and file name with ~/~ → ~prompts/triage_v1.md~.
+3. ~path.read_text()~ reads the whole file as text.
+4. ~glob("*.md")~ finds every ~.md~ file in the folder; the comprehension keeps just their names.
+
+**Result:** the path, the prompt text and a list of prompt files. Changing ~PROMPT_VERSION~ to "triage_v2" switches the whole project to the new prompt.
+~~~
 
 **Real problem (B02): send a PDF to Claude.** Files travel inside JSON as **base64** (binary data written as plain letters):
 
@@ -1608,6 +2463,17 @@ print(base64.standard_b64decode(block["source"]["data"]))
 # → JVBERi0xLjcgdGlueSBleGFtcGxl
 # → b'%PDF-1.7 tiny example'
 ~~~
+~~~explain
+**What it's for:** B02 packing a PDF into a message for Claude.
+
+**Step by step:**
+1. ~pdf_bytes~ stands in for a real PDF file's raw bytes.
+2. ~base64.standard_b64encode(...)~ rewrites the bytes as plain letters and digits; ~.decode()~ makes that a normal string, which can go inside JSON.
+3. The block says "this is a document, base64-encoded, of type PDF" and holds the data.
+4. ~b64decode~ reverses it, proving nothing was lost.
+
+**Result:** the encoded text and the original bytes back. Images are sent the same way.
+~~~
 
 **Real problem (every gateway): measure latency** with a stopwatch:
 
@@ -1618,6 +2484,17 @@ time.sleep(0.25)                                   # stands in for an AI call
 ms = (time.perf_counter() - t0) * 1000
 print(f"took about {round(ms, -2):.0f} ms")
 # → took about 300 ms   (varies a little)
+~~~
+~~~explain
+**What it's for:** measuring how long a call took (every gateway logs this).
+
+**Step by step:**
+1. ~time.perf_counter()~ reads a precise stopwatch; store the start time in ~t0~.
+2. ~time.sleep(0.25)~ waits a quarter of a second, standing in for an AI call.
+3. Read the stopwatch again, subtract the start, multiply by 1000 to get milliseconds (about 250).
+4. ~round(ms, -2)~ rounds to the nearest hundred.
+
+**Result:** about 300 ms (a real measurement varies slightly from run to run).
 ~~~
 
 ~~~quiz
@@ -1641,6 +2518,15 @@ print(str(result))          # Python's spelling: not valid JSON
 print(json.dumps(result))   # JSON spelling
 # → {'ok': True}
 # → {"ok": true}
+~~~
+~~~explain
+**What it's for:** showing why tool results must use ~json.dumps~ and not ~str~.
+
+**Step by step:**
+1. ~str(result)~ gives Python's own spelling: single quotes and ~True~. That is **not** valid JSON.
+2. ~json.dumps(result)~ gives real JSON: double quotes and ~true~.
+
+**Result:** always send ~json.dumps(...)~ so any system, including the model, reads it correctly.
 ~~~
 
 ~~~quiz
