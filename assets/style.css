@@ -347,3 +347,4 @@ ul.ready li { margin: 6px 0; }
 ul.ready label { display: flex; gap: 10px; align-items: baseline; cursor: pointer; }
 /* long inline code (e.g. in "the code in plain words") wraps instead of widening the page on phones */
 :not(pre) > code, li code, td code { overflow-wrap: anywhere; }
+.kind-py { color: #c27c0e; }

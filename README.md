@@ -10,8 +10,9 @@ Every project follows the same eight stages, so the way of working becomes a hab
 
 Like a driving school: one lesson plan to follow in order, plus reference books to open when you need them.
 
-- **The learning path** (`#/path`) is the main road: 58 steps in 7 phases (Orientation → Foundations → First project → Beginner → Intermediate → Advanced → Career). Short guide and concept lessons sit right before the project that first needs them, each step explains *why it comes now*, and every level ends with a **checkpoint** (self-check questions with hidden answers and a "you're ready if…" list).
+- **The learning path** (`#/path`) is the main road: 74 steps in 8 phases (Orientation → Python toolkit → Foundations → First project → Beginner → Intermediate → Advanced → Career). Short guide and concept lessons sit right before the project that first needs them, each step explains *why it comes now*, and every level ends with a **checkpoint** (self-check questions with hidden answers and a "you're ready if…" list).
 - Every step has a "Step N of 58" banner and a **Mark done & continue** button, and the home page has a **Continue where you left off** button.
+- **The Python toolkit** (`#/python`) comes before any project: 15 short lessons (running Python, values, text, lists and dicts, loops, functions, comprehensions, modules, errors and files, classes, Pydantic, decorators, async, pytest, calling AI APIs), each with examples and their output, common mistakes, practice questions, and a list of the projects that use it. Python words on project pages link back to their lesson.
 - **The library** (guides, concepts, pattern library, pattern matrix, glossary) is for looking things up at any time.
 
 ## What's inside
@@ -60,6 +61,7 @@ content/simple.js       # plain-words explanations + analogies for every page, a
 content/patterns-explained.js  # real-life stories for every pattern + more glossary words
 content/tech.js         # technologies and Python features, detected automatically from the code
 content/walkthroughs-*.js      # "the code in plain words" for every build step
+content/python.js       # Python toolkit: 15 lessons covering all the Python the projects use
 content/path.js         # the learning path order, Start page, Warm-up words, level checkpoints
 content/projects/*.js   # one file per project (b01–b10, i01–i10, a01–a08)
 ```

@@ -15,6 +15,27 @@ window.PATH = [
     ],
   },
   {
+    id: "python", title: "Python toolkit: the Python you need first", goal: "Read project code comfortably: every Python idea the projects use, one short lesson at a time.",
+    steps: [
+      { kind: "py", id: "setup", why: "Before writing any code, know where code lives, how to run it, and where secret keys go.", minutes: 20 },
+      { kind: "py", id: "values", why: "Every line of code works with values and names. This is the alphabet.", minutes: 20 },
+      { kind: "py", id: "strings", why: "AI systems mostly move text around, so text tools come early.", minutes: 25 },
+      { kind: "py", id: "collections", why: "Lists and dictionaries hold almost all project data, and dictionaries look exactly like JSON.", minutes: 30 },
+      { kind: "py", id: "control-flow", why: "Rules (if) and repetition (loops) are how plain code makes decisions around the AI.", minutes: 30 },
+      { kind: "py", id: "functions", why: "Every project file is a set of small functions. Learn to read one and you can read them all.", minutes: 30 },
+      { kind: "py", id: "comprehensions", why: "The one-line list builders appear in every evaluation script.", minutes: 20 },
+      { kind: "py", id: "modules", why: "Projects are split into several files that import each other, plus handy built-in tools.", minutes: 25 },
+      { kind: "py", id: "errors-files", why: "AI calls and inputs fail in odd ways. Handling errors calmly is half of reliable code.", minutes: 25 },
+      { kind: "py", id: "classes", why: "Tickets, invoices and results are described as classes. Needed before Pydantic.", minutes: 30 },
+      { kind: "py", id: "pydantic", why: "The most used tool in the lab: the 'forms' the AI fills in. Your first project depends on it.", minutes: 30 },
+      { kind: "py", id: "decorators", why: "Lines like @dataclass and @beta_tool appear everywhere. Learn to recognise them.", minutes: 15 },
+      { kind: "py", id: "async", why: "Projects make many slow AI calls at once. This explains the async/await lines.", minutes: 20 },
+      { kind: "py", id: "testing", why: "Every project proves itself with tests. Learn pytest and fakes before you need them.", minutes: 25 },
+      { kind: "py", id: "apis", why: "The bridge to the projects: what an AI call looks like in Python, and what comes back.", minutes: 25 },
+      { kind: "check", id: "python", why: "Read project-style code and explain it. Pass this and the projects will feel readable.", minutes: 20 },
+    ],
+  },
+  {
     id: "foundations", title: "Foundations: how AI engineers think", goal: "Get the three ideas every project is built on.",
     steps: [
       { kind: "f", id: "the-loop", why: "Every project follows the same 8 stages. Learn the stages once and every project feels familiar.", minutes: 10 },
@@ -112,7 +133,7 @@ window.START_PAGE = {
 - Read and write the Python code for it, and **prove it works** with tests.
 - Explain your design in a job interview.
 
-You only need basic Python (variables, functions, lists, dictionaries). Every other word, idea and tool is explained inside the lab. You don't need an API key to learn. The code is there to read and understand, and running it is optional.
+You don't need to know Python yet: the **Python toolkit** (15 short lessons, right after the warm-up) teaches every piece of Python the projects use. If you already know Python, take its checkpoint and skip ahead. Every other word, idea and tool is explained inside the lab too. You don't need an API key to learn. The code is there to read and understand, and running it is optional.
 
 ## How the lab is organised
 Think of it like a **driving school**:
@@ -120,6 +141,7 @@ Think of it like a **driving school**:
 | At a driving school | In this lab | Where |
 |---|---|---|
 | A lesson plan from day one to the test | **The learning path**: one step at a time, in order | [Learning path](#/path) |
+| Learning the controls before driving | **Python toolkit**: the Python you need, before any project | [Python toolkit](#/python) |
 | Theory lessons | **Guides and concepts**: short chapters, each placed right before the project that needs it | in the path |
 | Driving practice | **28 projects**: real client problems, worked from brief to tested system | in the path |
 | Mock tests | **Checkpoints** at the end of each level | in the path |
@@ -181,6 +203,32 @@ Can you answer roughly? Then you're ready. Press **Mark done & continue**.
 };
 
 window.CHECKPOINTS = {
+  python: {
+    title: "Checkpoint: Python toolkit",
+    summary: "Ten small code-reading questions in the style of the projects. Work out the answer before you open it. Roughly right is enough.",
+    analogy: "A test drive around the block before the real lessons: if the controls feel natural, you're ready for the road.",
+    questions: [
+      { q: "What does ~f\"{name} owes {amount:.2f}\"~ produce when ~name = \"Ana\"~ and ~amount = 5~?", a: "~Ana owes 5.00~. The f-string fills in the blanks, and ~:.2f~ shows two decimal places. (Lesson 3)" },
+      { q: "~ticket = {\"id\": 7}~. What do ~ticket.get(\"owner\", \"none\")~ and ~ticket[\"owner\"]~ do?", a: "The first returns ~\"none\"~ (the fallback). The second crashes with a ~KeyError~ because there's no ~\"owner\"~ key. (Lesson 4)" },
+      { q: "What is ~[t.strip() for t in texts if t.strip()]~ doing?", a: "Building a new list of the cleaned texts, skipping any that are empty after cleaning. (Lesson 7)" },
+      { q: "In ~def route(label: str, confidence: float) -> str:~, what goes in and what comes out?", a: "In: a text label and a decimal confidence. Out: text. The ~: str~, ~: float~ and ~-> str~ parts are type hints. (Lesson 6)" },
+      { q: "~for step in range(MAX_STEPS): ... break ... else: escalate()~. When does ~escalate()~ run?", a: "Only when the loop finishes all its rounds without hitting ~break~, i.e. the budget ran out before the work was done. (Lesson 5)" },
+      { q: "A Pydantic model has ~category: Literal[\"bug\", \"billing\"]~. What happens if the data says ~\"refund\"~?", a: "Pydantic raises a ~ValidationError~: ~\"refund\"~ isn't one of the allowed choices. (Lesson 11)" },
+      { q: "Why does this code use ~try: ... except ValidationError as e:~ around the AI's answer?", a: "So a badly shaped answer doesn't crash the program. The code can retry, or send the case to a human with the error details in ~e~. (Lesson 9)" },
+      { q: "What does ~@beta_tool~ above a function tell you?", a: "It's a decorator: the function becomes a tool the AI may ask to call. Its docstring and type hints describe the tool to the AI. (Lesson 12)" },
+      { q: "In ~results = await asyncio.gather(*(classify(t) for t in texts))~, what is happening?", a: "All the ~classify~ calls are started together and the code waits until every one has finished, collecting the answers in order. Much faster than one by one. (Lesson 13)" },
+      { q: "After ~response = client.messages.create(...)~, where is the answer text and where is the cost information?", a: "Text: ~response.content[0].text~. Cost: ~response.usage.input_tokens~ and ~response.usage.output_tokens~. (Lesson 15)" },
+    ],
+    ready: [
+      "I can read a function and say what goes in, what comes out and what it does.",
+      "I'm comfortable with lists, dictionaries and reading nested JSON-like data.",
+      "I can read a Pydantic model and say which values it would reject.",
+      "I recognise try/except, with-blocks, decorators and async/await when I see them.",
+      "I can explain the parts of an AI call: model, max_tokens, system, messages, and the response.",
+    ],
+    review: [],
+    reviewLessons: ["functions", "collections", "pydantic", "apis"],
+  },
   beginner: {
     title: "Checkpoint: Beginner level",
     summary: "Ten questions to check you've got the core patterns before systems get bigger. Answer in your head or on paper, then open the answer.",

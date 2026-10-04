@@ -44,6 +44,9 @@
   const CON = byId(window.CONCEPTS);
   const FW = byId(window.FRAMEWORK);
   const SK = byId(window.SKILLS);
+  const PYL = byId(window.PYTHON_LESSONS || []);
+  const LESSON_OF = {};   // Python feature id -> the lesson that teaches it
+  (window.PYTHON_LESSONS || []).forEach((l) => (l.features || []).forEach((f) => (LESSON_OF[f] = l.id)));
   const projectsOf = (lvl) => window.PROJECTS.filter((p) => p.level === lvl);
   const ordered = LEVELS.flatMap((l) => projectsOf(l.id));
   const usage = {};
@@ -58,8 +61,8 @@
   const STEPS = [];
   (window.PATH || []).forEach((ph, pi) => ph.steps.forEach((s) => STEPS.push(Object.assign({}, s, { key: s.kind + ":" + s.id, phase: ph, phaseNo: pi + 1, n: STEPS.length }))));
   const STEP = Object.fromEntries(STEPS.map((s) => [s.key, s]));
-  const KIND_LABEL = { page: "Start", f: "Guide", c: "Concept", proj: "Project", check: "Checkpoint", s: "Career" };
-  const stepHref = (s) => ({ page: "#/" + s.id, f: "#/framework/" + s.id, c: "#/concept/" + s.id, proj: "#/project/" + s.id, s: "#/skills/" + s.id, check: "#/checkpoint/" + s.id })[s.kind];
+  const KIND_LABEL = { py: "Python", page: "Start", f: "Guide", c: "Concept", proj: "Project", check: "Checkpoint", s: "Career" };
+  const stepHref = (s) => ({ py: "#/python/" + s.id, page: "#/" + s.id, f: "#/framework/" + s.id, c: "#/concept/" + s.id, proj: "#/project/" + s.id, s: "#/skills/" + s.id, check: "#/checkpoint/" + s.id })[s.kind];
   const stepDoneId = (s) => (s.kind === "proj" ? s.id : "step:" + s.key);
   const stepDone = (s) => isDone(stepDoneId(s));
   function setStepDone(s, v) { if (stepDone(s) !== v) toggleDone(stepDoneId(s)); }
@@ -67,7 +70,7 @@
     if (s.kind === "page") return ({ start: window.START_PAGE, warmup: window.WARMUP_PAGE }[s.id] || {}).title || s.id;
     if (s.kind === "proj") return P[s.id] ? P[s.id].code + " · " + P[s.id].title : s.id;
     if (s.kind === "check") return ((window.CHECKPOINTS || {})[s.id] || {}).title || s.id;
-    const src = { f: FW, c: CON, s: SK }[s.kind];
+    const src = { f: FW, c: CON, s: SK, py: PYL }[s.kind];
     return src && src[s.id] ? src[s.id].title : s.id;
   }
   const nextStep = () => STEPS.find((s) => !stepDone(s));
@@ -76,7 +79,7 @@
   function stepKeyFor(parts) {
     const k = { start: "page:start", warmup: "page:warmup" }[parts[0]];
     if (k) return k;
-    const pre = { framework: "f:", concept: "c:", project: "proj:", skills: "s:", checkpoint: "check:" }[parts[0]];
+    const pre = { python: "py:", framework: "f:", concept: "c:", project: "proj:", skills: "s:", checkpoint: "check:" }[parts[0]];
     return pre && parts[1] ? pre + parts[1] : null;
   }
 
@@ -186,6 +189,8 @@
       h += link("#/", "Home");
       h += link("#/start", "▶ Start here", isDone("step:page:start") ? '<span class="done">✓</span>' : "");
       h += link("#/path", "Learning path", '<span class="num-r">' + stepsDone() + "/" + STEPS.length + "</span>");
+      const pyDone = (window.PYTHON_LESSONS || []).filter((l) => isDone("step:py:" + l.id)).length;
+      h += link("#/python", "Python toolkit", '<span class="num-r">' + pyDone + "/" + (window.PYTHON_LESSONS || []).length + "</span>");
     }
     LEVELS.forEach((lvl) => {
       const items = projectsOf(lvl.id).filter((p) => !q || searchText(p).includes(q));
@@ -285,7 +290,7 @@
     let h = "<h1>Learning path</h1><p class='lead'>Every step of the lab in the order a tutor would teach it. Short lessons come right before the project that needs them, and a checkpoint ends each level.</p>" + simpleBox("page:path");
     h += '<p><strong>' + done + " of " + tot + " steps done</strong></p><div class='bar' style='margin-bottom:14px'><span style='width:" + (100 * done) / tot + "%'></span></div>";
     if (nx) h += '<p><a class="btn primary" href="' + stepHref(nx) + '">' + (done ? "Continue: " : "Start: ") + esc(stepTitle(nx)) + " →</a></p>";
-    h += "<p class='muted small'>Kinds of step: <strong>Guide</strong> and <strong>Concept</strong> = a short reading lesson (10–15 min). <strong>Project</strong> = a full client project (an afternoon to two days). <strong>Checkpoint</strong> = self-check questions.</p>";
+    h += "<p class='muted small'>Kinds of step: <strong>Python</strong> = a short Python lesson (15–30 min). <strong>Guide</strong> and <strong>Concept</strong> = a short reading lesson (10–15 min). <strong>Project</strong> = a full client project (an afternoon to two days). <strong>Checkpoint</strong> = self-check questions.</p>";
     (window.PATH || []).forEach((ph, i) => {
       const st = STEPS.filter((s) => s.phase === ph);
       const total = st.reduce((a, s) => a + (s.minutes || 0), 0);
@@ -299,6 +304,49 @@
       h += "</ol></section>";
     });
     return h;
+  }
+
+  /* Python toolkit: the Python you need before the projects */
+  let PY_USAGE = null;   // lesson id -> projects whose code uses what it teaches
+  function pyUsage() {
+    if (PY_USAGE) return PY_USAGE;
+    PY_USAGE = {};
+    (window.PYTHON_LESSONS || []).forEach((l) => {
+      const fs = new Set(l.features || []);
+      PY_USAGE[l.id] = fs.size ? ordered.filter((p) => (p.build || []).some((st) => pyOf(st).some((f) => fs.has(f.id)))) : [];
+    });
+    return PY_USAGE;
+  }
+  function pagePython() {
+    const ls = window.PYTHON_LESSONS || [];
+    let h = "<h1>Python toolkit</h1><p class='lead'>" + ls.length + " short lessons in the order a tutor would teach them: from running your first file to calling an AI model from Python.</p>" + simpleBox("page:python");
+    h += md(window.PYTHON_INTRO || "");
+    h += "<div class='cards'>";
+    ls.forEach((l) => {
+      const n = pyUsage()[l.id].length;
+      h += '<a class="card' + (isDone("step:py:" + l.id) ? " done" : "") + '" href="#/python/' + l.id + '"><div class="k">' + (n ? "used in " + n + " of " + window.PROJECTS.length + " projects" : "used everywhere") + (isDone("step:py:" + l.id) ? " · ✓" : "") +
+        '</div><div class="t">' + esc(l.title) + '</div><div class="s">' + esc(l.summary) + "</div></a>";
+    });
+    h += "</div><p><a class='btn' href='#/checkpoint/python'>Python checkpoint: test yourself →</a></p>";
+    return h;
+  }
+  function pagePythonLesson(id) {
+    const l = PYL[id];
+    if (!l) return notFound();
+    let h = '<p class="muted small"><a href="#/python">Python toolkit</a></p><h1>' + esc(l.title) + "</h1><p class='lead'>" + esc(l.summary) + "</p>" + simpleBox("python:" + id);
+    h += md(l.body);
+    if (l.practice && l.practice.length) {
+      h += "<h2>Practice</h2><p class='muted'>Answer in your head or on paper first, then tap to compare.</p>";
+      h += l.practice.map((qa, i) => '<details class="xd qa"><summary><strong>' + (i + 1) + ".</strong> <span>" + inline(qa.q) + '</span></summary><div class="xd-body"><span class="simple-tag">A good answer</span><p>' + inline(qa.a) + "</p></div></details>").join("");
+    }
+    const feats = (window.PYFEATURES || []).filter((f) => (l.features || []).includes(f.id));
+    if (feats.length) {
+      const uses = pyUsage()[id];
+      h += "<h2>Where you'll use this</h2><p class='muted'>This lesson's Python appears in <strong>" + uses.length + " of " + window.PROJECTS.length + "</strong> projects. Tap a feature for a one-minute reminder. Project pages link back here.</p>";
+      h += '<div class="chips-row">' + feats.map((f) => '<button type="button" class="chip" data-x="py:' + f.id + '">' + inline(f.name) + "</button>").join("") + "</div>";
+      if (uses.length) h += "<p class='small'>" + uses.map((p) => '<a href="#/project/' + p.id + '">' + p.code + "</a>").join(" · ") + "</p>";
+    }
+    return h + pathPager("py:" + id);
   }
 
   function pageStart() {
@@ -316,14 +364,16 @@
   function pageCheckpoint(id) {
     const x = (window.CHECKPOINTS || {})[id];
     if (!x) return notFound();
-    let h = lvlPill(id) + "<h1 style='margin-top:10px'>" + esc(x.title) + "</h1><p class='lead'>" + esc(x.summary) + "</p>" + simpleBox("check:" + id);
+    let h = (LEVELS.some((l) => l.id === id) ? lvlPill(id) : "") + "<h1 style='margin-top:10px'>" + esc(x.title) + "</h1><p class='lead'>" + esc(x.summary) + "</p>" + simpleBox("check:" + id);
     h += "<h2>Questions</h2><p class='muted'>Say your answer out loud or write it down <em>first</em>, then tap the question to compare. Being roughly right is enough.</p>";
     h += x.questions.map((qa, i) => '<details class="xd qa"><summary><strong>Q' + (i + 1) + ".</strong> <span>" + inline(qa.q) + '</span></summary><div class="xd-body"><span class="simple-tag">A good answer</span><p>' + inline(qa.a) + "</p></div></details>").join("");
     const ticks = store.get("ready:" + id, {});
     h += "<h2>You're ready to move on if…</h2><p class='muted'>Tick each one you can honestly say yes to (saved in this browser).</p><ul class='ready'>" +
       x.ready.map((r, i) => '<li><label><input type="checkbox" data-ready="' + id + ":" + i + '"' + (ticks[i] ? " checked" : "") + "> <span>" + inline(r) + "</span></label></li>").join("") + "</ul>";
-    h += "<h2>Not sure yet? Re-read these first</h2><p class='muted'>These projects hold the main ideas of this level. Skim their <strong>Recap</strong> sections.</p><div class='cards'>" +
+    if (x.review && x.review.length) h += "<h2>Not sure yet? Re-read these first</h2><p class='muted'>These projects hold the main ideas of this level. Skim their <strong>Recap</strong> sections.</p><div class='cards'>" +
       x.review.map((pid) => P[pid]).filter(Boolean).map(projCard).join("") + "</div>";
+    if (x.reviewLessons && x.reviewLessons.length) h += "<h2>Not sure yet? Re-read these first</h2><p class='muted'>Each answer above names its lesson. These four matter most.</p><div class='cards'>" +
+      x.reviewLessons.map((lid) => PYL[lid]).filter(Boolean).map((l) => '<a class="card" href="#/python/' + l.id + '"><div class="t">' + esc(l.title) + '</div><div class="s">' + esc(l.summary) + "</div></a>").join("") + "</div>";
     return h + pathPager("check:" + id);
   }
 
@@ -369,7 +419,8 @@
 
   // --- glossary term matching (for tap-to-explain words) ------------------
   const TERM_EXCLUDE = new Set(["State", "Client", "Index", "Budget (steps, tokens, money)", "Draft", "Feedback",
-    "Effort / thinking", "Agent", "Worker", "Critic", "Throughput", "Router", "Handler", "Ranking", "Module"]);
+    "Effort / thinking", "Agent", "Worker", "Critic", "Throughput", "Router", "Handler", "Ranking", "Module",
+    "List", "String", "Variable", "Method", "Function", "Dictionary", "Data type", "Return value"]);
   const TERM_ALIASES = {
     "Tool / function calling": ["tool calling", "function calling", "tool use"],
     "Human in the loop": ["human in the loop", "human-in-the-loop", "human review"],
@@ -455,7 +506,7 @@
     if (kind === "c" && CON[id]) return { title: CON[id].title, html: docCard("c", id, true), link: "#/concept/" + id };
     if (kind === "f" && FW[id]) return { title: FW[id].title, html: docCard("f", id, true), link: "#/framework/" + id };
     if (kind === "t") { const t = TECH_BY()[id]; return t ? { title: t.name, html: techCard(t) } : null; }
-    if (kind === "py") { const f = PY_BY()[id]; return f ? { title: f.name, html: pyCard(f) } : null; }
+    if (kind === "py") { const f = PY_BY()[id]; return f ? { title: f.name, html: pyCard(f), link: LESSON_OF[id] ? "#/python/" + LESSON_OF[id] : null } : null; }
     return null;
   }
   function toggleXcard(trigger) {
@@ -775,6 +826,7 @@
       case "warmup": html = pageWarmup(); break;
       case "path": html = pagePath(); break;
       case "checkpoint": html = pageCheckpoint(parts[1]); break;
+      case "python": html = parts[1] ? pagePythonLesson(parts[1]) : pagePython(); break;
       case "track": html = pageTrack(parts[1]); break;
       case "project": html = pageProject(parts[1]); break;
       case "patterns": html = pagePatterns(); break;
