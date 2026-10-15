@@ -121,6 +121,23 @@ window.TECH = [
     analogy: "A calculator for whole spreadsheets, plus a machine that sorts mixed items into similar piles." },
 
   /* ── Smaller standard-library helpers ── */
+  /* ── Computer vision (A09) ── */
+  { id: "opencv", kind: "Library", name: "OpenCV (~cv2~)", detect: /import cv2\b|cv2\./,
+    simple: "The classic computer vision library: reads video from cameras and files, resizes, blurs and draws on images, encodes JPEGs, and does geometry like homographies and point-in-polygon tests.",
+    analogy: "A photographer's darkroom and toolbox in one: crop, enlarge, blur, measure, label." },
+  { id: "onnxruntime", kind: "Library", name: "ONNX Runtime", detect: /onnxruntime|\bort\.InferenceSession/,
+    simple: "Runs trained models saved in the ONNX format, as fast as the hardware allows (TensorRT or CUDA on NVIDIA GPUs, or plain CPU).",
+    analogy: "A universal media player that can play a film file on a TV, a laptop or a phone, choosing the best settings for each." },
+  { id: "ultralytics", kind: "Library", name: "Ultralytics YOLO", detect: /ultralytics|YOLO\(/,
+    simple: "A popular library for training and using YOLO object detectors. A few lines load a pre-trained model, fine-tune it on your labelled images, score it and export it.",
+    analogy: "A driving school with a ready-made car: you don't build the engine, you teach it your town's roads." },
+  { id: "scipy", kind: "Library", name: "SciPy", detect: /scipy/,
+    simple: "A scientific computing library built on NumPy. Here it provides ~linear_sum_assignment~ (the Hungarian algorithm) to pair old tracks with new detections.",
+    analogy: "A shelf of ready-made maths tools, so you don't have to derive the formulas yourself." },
+  { id: "vision-input", kind: "AI platform", name: "Images in the Claude API (vision)", detect: /"type":\s*"image"/,
+    simple: "You can send pictures to the model as content blocks (here: JPEG bytes encoded as base64 text) alongside your text, and ask questions about them.",
+    analogy: "Attaching photos to an email to an expert and asking 'what do you see here?'." },
+
   { id: "re", kind: "Python standard library", name: "~re~ (regular expressions)", detect: /\bimport re\b|\bre\.(compile|sub|search|match|findall|split)\(/,
     simple: "Pattern matching for text: find things like email addresses or numbers using a special pattern language.",
     analogy: "A metal detector for text: you describe the shape of what you're looking for." },
@@ -145,7 +162,7 @@ window.TECH = [
   { id: "testing", kind: "Python standard library", name: "Testing tools (~pytest~ style, ~unittest.mock~)", detect: /def test_|unittest\.mock|from unittest/,
     simple: "Functions named ~test_...~ are run automatically by a test runner. ~mock.patch~ temporarily replaces something (like the clock) during a test.",
     analogy: "A practice exam with a pretend clock you control." },
-  { id: "misc-stdlib", kind: "Python standard library", name: "Other small built-in modules", detect: /import (time|random|math|statistics|itertools|base64|sys|os|subprocess|importlib|string|functools|contextvars|abc)\b|from (string|functools|contextvars|abc|itertools) import/,
+  { id: "misc-stdlib", kind: "Python standard library", name: "Other small built-in modules", detect: /import (time|random|math|statistics|itertools|base64|sys|os|subprocess|importlib|string|functools|contextvars|abc|queue|shutil)\b|from (string|functools|contextvars|abc|itertools) import/,
     simple: "Small built-in modules for timing, random numbers, maths, statistics, combinations, encoding files, reading settings and running other programs.",
     analogy: "The basic tools in every toolbox: tape measure, scissors, pencil." },
 ];
@@ -300,6 +317,9 @@ window.PYFEATURES = [
   { id: "counter", name: "~Counter~ / ~defaultdict~", detect: /\b(Counter|defaultdict)\(/,
     simple: "~Counter~ counts how many times each thing appears. ~defaultdict(list)~ creates an empty list the first time you use a new key.",
     analogy: "A tally sheet that adds a new row whenever something new shows up." },
+  { id: "numpy-indexing", name: "NumPy array indexing (~a[:, 0]~, ~a[None]~, masks)", detect: /\[\s*:\s*,|\[None\]|\[:,\s*None|\.argmax\(|np\.(array|zeros|where)\(/,
+    simple: "NumPy arrays are grids of numbers. ~a[:, 0]~ means 'column 0 of every row', ~a[None]~ adds an extra dimension, and ~a[mask]~ keeps only rows where a True/False list is True. Maths on arrays applies to every element at once, without loops.",
+    analogy: "A spreadsheet where you can say 'take the whole B column' or 'keep only the highlighted rows' in one move, instead of clicking cell by cell." },
   { id: "isinstance", name: "~isinstance()~", detect: /\bisinstance\(/,
     simple: "Checks what type something is, e.g. 'is this a string or a list?'.",
     analogy: "Checking whether a parcel is a letter or a box before choosing the slot." },

@@ -105,6 +105,8 @@ window.PATH = [
       { kind: "proj", id: "a05", why: "An investigation agent where mistakes are expensive, so it may only suggest fixes.", minutes: 600 },
       { kind: "proj", id: "a06", why: "Designing an agent so that tricky emails can't take control of it.", minutes: 600 },
       { kind: "proj", id: "a07", why: "Keeping quality high every day, for a product used by 300,000 students.", minutes: 600 },
+      { kind: "c", id: "computer-vision", why: "The next project works with camera video instead of text. Learn how computers see pictures first.", minutes: 15 },
+      { kind: "proj", id: "a09", why: "AI that watches video: a small model sees every frame on site, a big model double-checks rare unclear cases.", minutes: 900 },
       { kind: "f", id: "reading-a-company", why: "The capstone asks you to plan AI for a whole company. This chapter is the method.", minutes: 10 },
       { kind: "proj", id: "a08", why: "The capstone: every pattern in the lab, combined into one company's plan.", minutes: 720 },
       { kind: "check", id: "advanced", why: "The final check: can you explain and design systems like a senior engineer?", minutes: 30 },
@@ -143,7 +145,7 @@ Think of it like a **driving school**:
 | A lesson plan from day one to the test | **The learning path**: one step at a time, in order | [Learning path](#/path) |
 | Learning the controls before driving | **Python toolkit**: the Python you need, before any project | [Python toolkit](#/python) |
 | Theory lessons | **Guides and concepts**: short chapters, each placed right before the project that needs it | in the path |
-| Driving practice | **28 projects**: real client problems, worked from brief to tested system | in the path |
+| Driving practice | **29 projects**: real client problems, worked from brief to tested system | in the path |
 | Mock tests | **Checkpoints** at the end of each level | in the path |
 | The road-sign booklet | **Glossary and pattern library**: look things up any time | [Glossary](#/glossary), [Patterns](#/patterns) |
 
@@ -281,7 +283,7 @@ window.CHECKPOINTS = {
   },
   advanced: {
     title: "Checkpoint: Advanced level",
-    summary: "Eight design questions like the ones asked in senior interviews. Think them through properly before opening the answers.",
+    summary: "Nine design questions like the ones asked in senior interviews. Think them through properly before opening the answers.",
     analogy: "Like an architect's final review: you're not tested on bricks any more, but on whether the building stands up, stays safe, and serves the people inside.",
     questions: [
       { q: "In company-wide search (A01), why must permission filtering happen *inside* the search, not after the answer is written?", a: "If the AI ever sees a restricted document, it can leak it in the answer. Filtering inside the search means it never sees it. Unknown permissions fail closed, and a live re-check catches stale permissions." },
@@ -291,6 +293,7 @@ window.CHECKPOINTS = {
       { q: "Why does the incident agent (A05) have no tools that change anything?", a: "Wrong actions on live systems are expensive. The agent only proposes, and a separate service with allowlists, blast-radius limits, cooldowns and approvals executes. Even a fooled agent can't cause damage." },
       { q: "Explain the 'lethal trifecta' and how A06 breaks it.", a: "Private data + untrusted input + a way to send data out, all in one AI context. A06 separates them: a reader with no tools reads emails into a strict form, and a planner with tools never sees the raw email. Tools are also narrowly limited." },
       { q: "Why does A07 grade a *random* sample and not only thumbs-down feedback?", a: "Feedback is biased (unhappy users click more), so it's great for finding failures but bad for measuring true rates. A random sample gives honest numbers." },
+      { q: "Why does the warehouse camera system (A09) use a small trained detector for every frame and a vision-language model only for some events?", a: "Napkin maths: about 950 million frames a day is far too many to send to a large model (cost, bandwidth, latency). A small detector on site handles every frame in milliseconds; rules turn tracks into a few hundred candidate events; only the unclear ones get the big model's second opinion, and 'unsure' goes to a person. The safety warning itself uses on-site rules only." },
       { q: "In the capstone (A08), why does the roadmap start with quick wins that build platform pieces?", a: "Early value builds trust, and the reusable pieces (gateway, eval tooling, document index) make every later project cheaper and safer. Riskier customer-facing automation comes once there's data and monitoring." },
     ],
     ready: [
@@ -300,7 +303,7 @@ window.CHECKPOINTS = {
       "I can describe how quality is kept high after launch.",
       "I can answer a 45-minute system design interview using the 8 stages.",
     ],
-    review: ["a01", "a04", "a06", "a08"],
+    review: ["a01", "a04", "a06", "a08", "a09"],
   },
 };
 

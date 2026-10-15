@@ -313,3 +313,44 @@ Traditional monitoring tells you a request succeeded. LLM observability tells yo
 > Built in [[proj:i10]] (tracing + prompt CI) and used everywhere afterwards. Pattern: [[p:observability]].
 `,
 });
+
+concept({
+  id: "computer-vision",
+  title: "How computers see: detection, tracking and vision models",
+  summary: "Pixels and frames, object detection, IoU, tracking, pixels-to-metres, and when to use a small trained model versus a large vision-language model.",
+  body: md`
+## A picture is a grid of numbers
+A colour image is a grid of tiny dots (**pixels**). Each pixel is three numbers from 0 to 255: how much blue, green and red (OpenCV stores them in that order, BGR). A 1080p frame is 1920 × 1080 × 3 ≈ 6 million numbers. A video is just many frames per second (**fps**): a camera at 25 fps produces 25 of those grids every second.
+
+## The four jobs of a perception system
+| Job | Question | Output | Built in |
+|---|---|---|---|
+| **Detect** | What is in this frame, and where? | Boxes: ~[x1, y1, x2, y2]~ + label + confidence | ~detector.py~ |
+| **Track** | Is this the same object as one frame ago? | A stable id per object | ~tracker.py~ |
+| **Measure** | Where is it in the real world, how fast is it going? | Metres, m/s, which zone | ~floor.py~ |
+| **Decide** | Does a rule fire? | An event | ~rules.py~ |
+
+Other vision jobs you'll hear about: **classification** (one label for the whole picture: "contains a forklift"), **segmentation** (which exact pixels belong to the object, not just a box), **pose estimation** (where the joints of a body are), and **OCR** (reading text in images).
+
+## Two numbers you'll see everywhere
+- **IoU (intersection over union):** overlap area ÷ combined area of two boxes. 1 = identical, 0 = not touching. It decides whether a predicted box "found" a real object, whether two boxes are duplicates (NMS), and which boxes belong to the same track.
+- **Confidence:** the detector's own 0..1 score for each box. You choose a **threshold** per class: lower finds more but makes more false alarms.
+
+## Small trained model or big vision-language model?
+| | Small detector (e.g. YOLO) | Vision-language model (e.g. Claude with images) |
+|---|---|---|
+| What it does | Finds boxes for a fixed list of classes | Answers questions about images in words, any topic |
+| Speed / cost | ~5 ms per frame on a cheap GPU, nearly free | Seconds per call, paid per image |
+| Needs training data? | Yes, a few thousand labelled images to adapt it | No: you describe what you want in the prompt |
+| Best for | Every frame, all day, on site | Rare, unclear cases; describing a scene; finding examples to label |
+
+The usual design is a **cascade** ([[p:model-cascade]]): the small model watches everything, rules pick candidates, and the big model looks only at the few that need judgement.
+
+## Measuring vision systems
+- **mAP** (mean average precision): the standard detector score, the area under the precision-recall curve averaged over classes. "mAP@0.5" means a box counts as correct if IoU ≥ 0.5.
+- **Tracking:** ID switches (how often an object's id changes by mistake) and IDF1.
+- **Events:** precision and recall of the things the business actually cares about. This is the number that goes in the brief.
+
+> Built end to end in [[proj:a09]].
+`,
+});

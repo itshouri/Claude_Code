@@ -278,7 +278,7 @@
   function pageHome() {
     const nx = nextStep(), done = stepsDone(), tot = STEPS.length;
     let h = "<h1>Learn to think like an AI engineer</h1>";
-    h += '<p class="lead">A step-by-step course that takes you from "what is an AI model?" to designing AI systems for whole companies, through 28 realistic client projects. Everything you need is explained inside the lab.</p>';
+    h += '<p class="lead">A step-by-step course that takes you from "what is an AI model?" to designing AI systems for whole companies, through ' + window.PROJECTS.length + ' realistic client projects. Everything you need is explained inside the lab.</p>';
     h += '<div class="start-card">';
     if (!done) {
       h += icon("play", "big") + '<div class="k">New here? Start with step 1</div><div class="t">' + esc(stepTitle(STEPS[0])) + "</div>" +
@@ -473,6 +473,10 @@
     "Accuracy / precision / recall": ["accuracy", "precision", "recall"],
     "Citation / grounding": ["citation", "citations", "grounded", "grounding"],
     "Observability / tracing": ["observability", "tracing"],
+    "mAP (mean average precision)": ["mean average precision", "mAP@0.5"],
+    "Data drift": ["data drift", "drift"],
+    "Data leakage": ["data leakage", "leakage"],
+    "Edge box / edge device": ["edge box", "edge boxes", "edge device", "at the edge"],
   };
   let TERM_INDEX = null;
   function termIndex() {
@@ -732,7 +736,7 @@
   }
 
   function pagePatterns() {
-    let h = "<h1>" + icon("puzzle", "h1") + "Pattern library</h1><p class='lead'>Once you can name a pattern you start seeing it everywhere. The number on each one is how many of the 28 projects use it.</p>";
+    let h = "<h1>" + icon("puzzle", "h1") + "Pattern library</h1><p class='lead'>Once you can name a pattern you start seeing it everywhere. The number on each one is how many of the " + window.PROJECTS.length + " projects use it.</p>";
     h += md(window.PATTERNS_INTRO || "");
     h += "<h2>Words you'll need first</h2><p class='muted'>These words appear on almost every pattern page. If they're new, read them now. Each pattern page also lists its own new words before the technical part, and every word is in the <a href='#/glossary'>Glossary</a>.</p>";
     h += wordList(window.PATTERN_STARTER_WORDS || []);
