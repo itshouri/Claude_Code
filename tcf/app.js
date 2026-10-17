@@ -312,7 +312,7 @@
     ["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Lessons"], ["words", "🖼️", "Words"], ["flash", "🃏", "Flashcards"],
     ["practice", "🎧", "Practice"], ["videos", "🎬", "Videos"], ["exam", "🎯", "TCF guide"], ["mistakes", "🩹", "Mistakes"], ["progress", "📈", "Progress"],
   ];
-  const TABS = [["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Learn"], ["practice", "🎧", "Practice"], ["more", "☰", "More"]];
+  const TABS = [["today", "●", "Today"], ["roadmap", "◫", "Roadmap"], ["lessons", "▤", "Learn"], ["practice", "◎", "Practice"], ["more", "☰", "More"]];
   const section = (r) => { const base = r.split("-")[0]; return { week: "roadmap", day: "roadmap", lesson: "lessons", cp: "roadmap", review: "lessons", vquiz: "words", listen: "practice", read: "practice", write: "practice", speak: "practice", sit: "practice", mock: "practice", "progress": "progress" }[base] || base; };
 
   function shell() {
@@ -322,9 +322,9 @@
       <div class="shell">
         <nav class="rail" aria-label="Main">
           <a class="brand" href="#today"><span class="flag"><i></i><i></i><i></i></span>Chemin TCF</a>
-          ${NAV.map(([r, i, n]) => `<a class="nav" data-r="${r}" href="#${r}"><span class="ico">${i}</span>${n}</a>`).join("")}
+          ${NAV.map(([r, i, n]) => `<a class="nav" data-r="${r}" href="#${r}">${n}</a>`).join("")}
           <div class="sep"></div>
-          <a class="nav" data-r="method" href="#method"><span class="ico">💡</span>How to use this</a>
+          <a class="nav" data-r="method" href="#method">How to use this</a>
           <div class="foot"><span id="syncnote">${syncNote}</span></div>
         </nav>
         <main class="main" id="main"></main>
@@ -391,7 +391,7 @@
         ${taskList(day)}
       </div>
       <div class="stats">
-        <div class="stat"><div class="label">Streak</div><div class="v">${streak()} 🔥</div></div>
+        <div class="stat"><div class="label">Streak</div><div class="v">${streak()}</div></div>
         <div class="stat"><div class="label">Cards due</div><div class="v">${dueN}</div></div>
         <div class="stat"><div class="label">Mistakes to fix</div><div class="v">${S.errors.length}</div></div>
         <div class="stat"><div class="label">Study time</div><div class="v">${Math.round(Object.values(S.mins).reduce((a, b) => a + b, 0) / 60)} h</div></div>
@@ -439,7 +439,6 @@
       const lines = t.lines && t.lines.length ? `<div class="inline-say">${t.lines.map((x) => /^Talk for/.test(x) ? `<div class="muted small">${esc(x)}</div>` : `<div>${sayBtn(x.replace(/…|\(.*?\)/g, ""))}<span>${esc(x)}</span></div>`).join("")}</div>` : "";
       return `<div class="task${isDone ? " done" : ""}" data-d="${day.d}" data-i="${i}">
         <button class="check" aria-label="Mark done">${isDone ? "✓" : ""}</button>
-        <span class="ico">${info.icon}</span>
         <div class="lbl"><span>${esc(info.label)}</span>${info.sub ? `<small>${esc(info.sub)}</small>` : ""}${lines}</div>
         <div class="go">${info.min ? `<span class="chip num">${info.min}′</span>` : ""}${info.href ? `<a class="btn small" href="${info.href}">Start</a>` : ""}</div>
       </div>`;
@@ -458,7 +457,7 @@
         const cp = window.CHECKPOINTS[p.id], cps = S.cp[p.id];
         return `<section class="card phase ${p.color}">
           <div class="spread"><div class="stack" style="gap:4px"><span class="label">Phase ${p.n} · ${esc(p.months)} · weeks ${p.weeks[0]}–${p.weeks[1]}</span><h2>${esc(p.name)}</h2><span class="muted">${esc(p.en)}</span></div>
-          ${cp ? `<a class="chip ${cps && cps.passed ? "good" : ""}" href="#cp-${p.id}">🏁 ${cps && cps.passed ? "Passed " + cps.score + "%" : "Checkpoint"}</a>` : ""}</div>
+          ${cp ? `<a class="chip ${cps && cps.passed ? "good" : ""}" href="#cp-${p.id}">${cps && cps.passed ? "Passed " + cps.score + "%" : "Checkpoint"}</a>` : ""}</div>
           <p>${md(p.simple)}</p>
           <div class="note analogy"><b>Think of it like this</b>${md(p.analogy)}</div>
           <div><span class="label">By the end you can</span><ul class="points">${p.outcomes.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div>
@@ -611,12 +610,12 @@
     const done = (o) => (o ? `<span class="chip good">${o.score != null ? o.score + "/20" : "saved"}</span>` : "");
     const item = (href, title, level, extra) => `<a class="wk" href="${href}"><span class="row" style="gap:6px"><span class="chip blue">${level}</span>${extra || ""}</span><b>${esc(title)}</b></a>`;
     return `<div class="stack"><span class="label">The four TCF skills</span><h1>Practice</h1><p class="muted">Listening is read aloud by your device's French voice, so you hear it before you see the text. Writing and speaking come with timers, checklists, model answers and a self-score out of 20.</p></div>
-      <section class="card"><h2>🎧 Listening (compréhension orale)</h2><div class="weeks">${window.LISTENING.map((x) => item("#listen-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
-      <section class="card"><h2>📖 Reading (compréhension écrite)</h2><div class="weeks">${window.READING.map((x) => item("#read-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
-      <section class="card"><h2>✍️ Writing (expression écrite)</h2><div class="weeks">${window.WRITING.map((x) => item("#write-" + x.id, x.en, "Task " + x.task, done(S.writing[x.id]))).join("")}</div></section>
-      <section class="card"><h2>🗣️ Speaking (expression orale)</h2><div class="weeks">${window.SPEAKING.map((x) => item("#speak-" + x.id, x.en, "Task " + x.task, done(S.speaking[x.id]))).join("")}</div></section>
-      <section class="card"><h2>🎭 Real-life situations</h2><div class="grid tight">${window.SITUATIONS.map((x) => `<a class="wcard theme" href="#sit-${x.id}"><span class="pic">${x.icon}</span><b>${esc(x.title)}</b></a>`).join("")}</div></section>
-      <section class="card"><h2>⏱️ Timed mini-tests</h2><p class="muted small">A listening set + a reading set at B1–B2 level, timed. Used every day in the TCF Camp.</p><a class="btn" href="#mock-1">Start a mini-test</a></section>`;
+      <section class="card"><h2>Listening (compréhension orale)</h2><div class="weeks">${window.LISTENING.map((x) => item("#listen-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
+      <section class="card"><h2>Reading (compréhension écrite)</h2><div class="weeks">${window.READING.map((x) => item("#read-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
+      <section class="card"><h2>Writing (expression écrite)</h2><div class="weeks">${window.WRITING.map((x) => item("#write-" + x.id, x.en, "Task " + x.task, done(S.writing[x.id]))).join("")}</div></section>
+      <section class="card"><h2>Speaking (expression orale)</h2><div class="weeks">${window.SPEAKING.map((x) => item("#speak-" + x.id, x.en, "Task " + x.task, done(S.speaking[x.id]))).join("")}</div></section>
+      <section class="card"><h2>Real-life situations</h2><div class="grid tight">${window.SITUATIONS.map((x) => `<a class="wcard theme" href="#sit-${x.id}"><span class="pic">${x.icon}</span><b>${esc(x.title)}</b></a>`).join("")}</div></section>
+      <section class="card"><h2>Timed mini-tests</h2><p class="muted small">A listening set + a reading set at B1–B2 level, timed. Used every day in the TCF Camp.</p><a class="btn" href="#mock-1">Start a mini-test</a></section>`;
   }
 
   function mcqBlock(set, kind) {
@@ -824,7 +823,7 @@
       finished("exam", (location.hash.split("-")[1] || ""));
     });
     return `<div class="stack"><span class="label">TCF Canada</span><h1>The exam, explained</h1><p class="muted">Everything about the test format, scores and strategies, in plain English.</p></div>
-      ${Object.entries(E).map(([k, s]) => `<section class="card" id="sec-${k}"><h2>${s.icon} ${esc(s.title)}</h2><ul class="points">${s.body.map((b) => `<li>${md(b)}</li>`).join("")}</ul>
+      ${Object.entries(E).map(([k, s]) => `<section class="card" id="sec-${k}"><h2>${esc(s.title)}</h2><ul class="points">${s.body.map((b) => `<li>${md(b)}</li>`).join("")}</ul>
         ${s.table ? `<div class="table-wrap"><table><thead><tr>${s.table[0].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${s.table.slice(1).map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${i ? c : "<b>" + c + "</b>"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
         <div id="calc" class="stack"><span class="label">Score converter</span><div class="grid tight">
           <div class="field"><label for="c-co">Listening /699</label><input type="number" id="c-co" value="458" min="0" max="699"></div>
@@ -889,18 +888,18 @@
     return Math.round((h.reduce((a, x) => a + x.s / x.m, 0) / h.length) * 100);
   }
   function pageProgress() {
-    const skills = [["🎧 Listening", ["listen", "mock"]], ["📖 Reading", ["read"]], ["✍️ Writing", ["write"]], ["🗣️ Speaking", ["speak"]], ["📘 Grammar", ["lesson"]], ["🖼️ Vocabulary", ["vocab"]]];
+    const skills = [["Listening", ["listen", "mock"]], ["Reading", ["read"]], ["Writing", ["write"]], ["Speaking", ["speak"]], ["Grammar", ["lesson"]], ["Vocabulary", ["vocab"]]];
     const vals = skills.map(([n, k]) => [n, skillAvg(k), k]);
-    const known = vals.filter((v) => v[1] != null && v[0] !== "📘 Grammar" && v[0] !== "🖼️ Vocabulary");
+    const known = vals.filter((v) => v[1] != null && v[0] !== "Grammar" && v[0] !== "Vocabulary");
     const weakest = known.sort((a, b) => a[1] - b[1])[0];
     const daysDone = PLAN.filter((x) => dayState(x) === "full").length;
     const last14 = Array.from({ length: 14 }, (_, i) => addDays(todayStr(), i - 13));
     const maxM = Math.max(30, ...last14.map((d) => S.mins[d] || 0));
     const tips = {
-      "🎧 Listening": ["Do one extra listening set every day this week", "Replay each recording slowly after answering and read the transcript", "Listen to 15 minutes of Radio-Canada or a French podcast daily"],
-      "📖 Reading": ["Do one extra reading text a day", "Time yourself: 1 minute per short question", "Read one short news article in French each day"],
-      "✍️ Writing": ["Write one task-1 message and one task-3 text this week", "Compare with the model answers and fix 3 mistakes each time", "Learn 5 new connectors"],
-      "🗣️ Speaking": ["Record one task-3 voice note every day", "Repeat your task-1 introduction until it lasts 2 minutes", "Do 2 real-life situations a week"],
+      "Listening": ["Do one extra listening set every day this week", "Replay each recording slowly after answering and read the transcript", "Listen to 15 minutes of Radio-Canada or a French podcast daily"],
+      "Reading": ["Do one extra reading text a day", "Time yourself: 1 minute per short question", "Read one short news article in French each day"],
+      "Writing": ["Write one task-1 message and one task-3 text this week", "Compare with the model answers and fix 3 mistakes each time", "Learn 5 new connectors"],
+      "Speaking": ["Record one task-3 voice note every day", "Repeat your task-1 introduction until it lasts 2 minutes", "Do 2 real-life situations a week"],
     };
     later((m) => {
       $("#exp", m).onclick = async () => { const txt = JSON.stringify(S); $("#bk", m).value = txt; try { await navigator.clipboard.writeText(txt); toast("Copied. Paste it somewhere safe."); } catch (e) { $("#bk", m).select(); toast("Select all and copy the text"); } };
@@ -918,7 +917,7 @@
       <div class="card"><h3>Phases</h3><div class="stack">${PHASES.map((p) => { const ds = PLAN.filter((d) => d.phase === p.id); const n = ds.filter((d) => dayState(d) === "full").length; return `<div class="skill"><span class="small">${p.n}. ${esc(p.name)}</span><div class="bar"><i style="width:${pct(n, ds.length)}%"></i></div><span class="num small">${pct(n, ds.length)}%</span></div>`; }).join("")}</div></div>
       <div class="card"><h3>Skills (average of your last 6 scores)</h3><div class="stack">${vals.map(([n, v]) => `<div class="skill"><span class="small">${n}</span><div class="bar ${v >= 70 ? "good" : ""}"><i style="width:${v || 0}%"></i></div><span class="num small">${v == null ? "–" : v + "%"}</span></div>`).join("")}</div>
         <p class="small muted">70% on these practice sets is a good sign you're near NCLC 7 for that skill. They are not official TCF scores.</p></div>
-      <div class="card" id="sec-plan"><h3>🧭 Your focus this week</h3>${weakest ? `<p>Your weakest skill right now is <b>${weakest[0]}</b> (${weakest[1]}%). Add this to your week:</p><ul class="points">${tips[weakest[0]].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : `<p class="muted">Do at least one listening, reading, writing and speaking exercise, and this card will tell you which skill needs the most work.</p>`}</div>
+      <div class="card" id="sec-plan"><h3>Your focus this week</h3>${weakest ? `<p>Your weakest skill right now is <b>${weakest[0]}</b> (${weakest[1]}%). Add this to your week:</p><ul class="points">${tips[weakest[0]].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : `<p class="muted">Do at least one listening, reading, writing and speaking exercise, and this card will tell you which skill needs the most work.</p>`}</div>
       <div class="card"><h3>Study minutes, last 14 days</h3><div class="minibars">${last14.map((d) => `<div style="height:${pct(S.mins[d] || 0, maxM)}%" title="${d}: ${S.mins[d] || 0} min"></div>`).join("")}</div><div class="minibars-labels">${last14.map((d) => `<span>${d.slice(8)}</span>`).join("")}</div></div>
       <div class="card"><h3>Checkpoints</h3><ul class="clean">${Object.entries(window.CHECKPOINTS).map(([k, c]) => `<li class="spread"><a href="#cp-${k}">${esc(c.title)}</a>${S.cp[k] ? `<span class="chip ${S.cp[k].passed ? "good" : "warn"}">${S.cp[k].score}%${S.cp[k].passed ? " ✓" : ""}</span>` : `<span class="chip">not taken</span>`}</li>`).join("")}</ul></div>
       <div class="card"><h3>Recent activity</h3>${S.hist.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Activity</th><th>Score</th></tr></thead><tbody>${S.hist.slice(-12).reverse().map((h) => `<tr><td class="num">${new Date(h.t).toISOString().slice(0, 10)}</td><td>${esc(h.k)} · ${esc(h.id)}</td><td class="num">${h.s}/${h.m}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Nothing yet.</p>`}</div>
@@ -946,7 +945,7 @@
       <p class="small muted">The 🔊 buttons use your device's French voice. On a phone or computer without a French voice, install one in your system's language settings.</p></div>`;
   }
   function pageMore() {
-    return `<h1>More</h1><div class="grid tight">${NAV.concat([["method", "💡", "How to use this"]]).map(([r, i, n]) => `<a class="wcard theme" href="#${r}"><span class="pic">${i}</span><b>${n}</b></a>`).join("")}</div>`;
+    return `<h1>More</h1><div class="grid tight">${NAV.concat([["method", "💡", "How to use this"]]).map(([r, i, n]) => `<a class="wk" href="#${r}"><b>${n}</b></a>`).join("")}</div>`;
   }
 
   // ---------- global events ----------
