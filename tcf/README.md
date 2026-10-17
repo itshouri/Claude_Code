@@ -27,7 +27,8 @@ Each phase ends with a **checkpoint** (70% + every can-do statement ticked), bec
 - **Videos**: add the lesson videos you receive to the right week and lesson, with the video study method.
 - **TCF guide**: format, NCLC score table and converter, strategies, exam-day checklist.
 - **Mistakes**: every wrong answer, ready to redo.
-- **Progress**: skill bars, study minutes, checkpoints, your focus for the week, backup and restore.
+- **Game layer**: XP for every task and quiz, 10 levels (🌱 Débutant → 🍁 Prêt pour le Canada), a 50 XP daily goal, streaks, 23 badges and small celebrations.
+- **Progress**: badges, levels, skill bars, study minutes, checkpoints, your focus for the week, backup and restore.
 
 ## Run it
 

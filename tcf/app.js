@@ -30,13 +30,14 @@
 
   // ---------- state (saved in this browser, and in your claude.ai account when available) ----------
   const KEY = "chemin-tcf-v1";
-  const blank = () => ({ v: 1, updated: 0, name: "", start: "", accent: "fr-FR", done: {}, quiz: {}, hist: [], errors: [], cards: {}, writing: {}, speaking: {}, videos: [], cp: {}, mins: {}, override: {}, learned: {} });
+  const blank = () => ({ v: 1, updated: 0, xp: 0, xpDay: {}, badges: {}, fixed: 0, best: 0, name: "", start: "", accent: "fr-FR", done: {}, quiz: {}, hist: [], errors: [], cards: {}, writing: {}, speaking: {}, videos: [], cp: {}, mins: {}, override: {}, learned: {} });
   let S = blank();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) { /* storage blocked: start fresh */ }
   let remote = null, saveTimer = null, syncNote = "Saved in this browser";
 
   function save() {
     S.updated = Date.now();
+    if (PLAN) { S.best = Math.max(S.best || 0, streak()); checkBadges(); updateHUD(); }
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { if (remote) remote.set({ json: JSON.stringify(S) }).catch(() => {}); }, 1200);
@@ -67,9 +68,102 @@
     if (S.hist.length > 600) S.hist = S.hist.slice(-600);
   }
   function addMinutes(n) { const d = todayStr(); S.mins[d] = (S.mins[d] || 0) + n; }
-  function toast(msg) {
-    const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  function toast(msg, big) {
+    let box = document.getElementById("toasts");
+    if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); }
+    if (big) { bigQueue.push(msg); if (bigQueue.length === 1) showBig(box); return; }
+    const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; box.appendChild(t);
     setTimeout(() => t.remove(), 1800);
+  }
+  // Celebrations show one at a time, like achievements popping in a game.
+  const bigQueue = [];
+  function showBig(box) {
+    if (!bigQueue.length) return;
+    const t = document.createElement("div"); t.className = "toast big"; t.textContent = bigQueue[0]; box.appendChild(t);
+    setTimeout(() => { t.remove(); bigQueue.shift(); showBig(box); }, 2000);
+  }
+
+  // ---------- game layer: XP, levels, daily goal, badges, celebrations ----------
+  // Like a video game: every bit of study earns XP, XP raises your level,
+  // and badges mark milestones. It turns a 9-month journey into small daily wins.
+  const LEVELS = [[0, "🌱", "Débutant"], [150, "🥐", "Curieux"], [400, "🎒", "Voyageur"], [800, "💬", "Bavard"], [1400, "🧭", "Explorateur"],
+    [2200, "🦊", "Confiant"], [3300, "🎤", "Orateur"], [4800, "🏅", "Expert"], [6800, "👑", "Maître"], [9500, "🍁", "Prêt pour le Canada"]];
+  const DAILY_GOAL = 50;
+  function levelInfo(xp) {
+    xp = xp == null ? S.xp || 0 : xp;
+    let i = 0; while (i + 1 < LEVELS.length && xp >= LEVELS[i + 1][0]) i++;
+    const cur = LEVELS[i], nxt = LEVELS[i + 1];
+    return { i, n: i + 1, icon: cur[1], name: cur[2], next: nxt, xp, need: nxt ? nxt[0] - xp : 0, p: nxt ? pct(xp - cur[0], nxt[0] - cur[0]) : 100 };
+  }
+  const xpToday = () => S.xpDay[todayStr()] || 0;
+  function gainXP(n, why) {
+    if (!n) return;
+    const before = levelInfo().i, goalBefore = xpToday() >= DAILY_GOAL, d = todayStr();
+    S.xp = Math.max(0, (S.xp || 0) + n); S.xpDay[d] = Math.max(0, (S.xpDay[d] || 0) + n);
+    if (n > 0) floatXP(n, why);
+    const after = levelInfo();
+    if (after.i > before) celebrate(`${after.icon} Level ${after.n}: ${after.name} !`);
+    else if (!goalBefore && xpToday() >= DAILY_GOAL) celebrate("⚡ Daily goal reached. Bravo !");
+    updateHUD();
+  }
+  function floatXP(n, why) {
+    const f = document.createElement("div"); f.className = "xpfloat"; f.textContent = `+${n} XP${why ? " · " + why : ""}`;
+    document.body.appendChild(f); setTimeout(() => f.remove(), 1400);
+  }
+  function celebrate(msg) { toast(msg, true); confetti(); }
+  function confetti() {
+    if ((window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || document.querySelector(".confetti")) return;
+    const c = document.createElement("canvas"); c.className = "confetti"; document.body.appendChild(c);
+    const w = (c.width = innerWidth), h = (c.height = innerHeight), x = c.getContext("2d");
+    const cols = ["#f5a524", "#10a37f", "#e5484d", "#3b82f6", "#a855f7", "#ff8a00"];
+    const ps = Array.from({ length: 110 }, () => ({ x: w / 2, y: h * 0.38, vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 11 - 4, r: Math.random() * 7 + 4, c: cols[(Math.random() * cols.length) | 0], a: Math.random() * 6 }));
+    let t = 0;
+    (function frame() {
+      x.clearRect(0, 0, w, h);
+      ps.forEach((p) => { p.vy += 0.33; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.a += 0.18; x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.fillRect(-p.r / 2, -p.r / 3, p.r, p.r * 0.6); x.restore(); });
+      if (++t < 100) requestAnimationFrame(frame); else c.remove();
+    })();
+  }
+  const countK = (k) => S.hist.filter((h) => h.k === k).length;
+  const BADGES = [
+    ["first", "👣", "First steps", "Complete your first task", () => Object.keys(S.done).length >= 1],
+    ["day1", "☀️", "Full day", "Finish every task of one day", () => PLAN.some((d) => dayState(d) === "full")],
+    ["week1", "📅", "Full week", "Finish all 7 days of a week", () => WEEKS.some((w) => PLAN.slice((w.w - 1) * 7, w.w * 7).every((d) => dayState(d) === "full"))],
+    ["streak3", "🔥", "On fire", "Study 3 days in a row", () => S.best >= 3],
+    ["streak7", "🚀", "Week warrior", "Study 7 days in a row", () => S.best >= 7],
+    ["streak30", "🌋", "Unstoppable", "Study 30 days in a row", () => S.best >= 30],
+    ["words50", "🧺", "Word collector", "50 words in your flashcards", () => Object.keys(S.cards).length >= 50],
+    ["words200", "📚", "Walking dictionary", "200 words in your flashcards", () => Object.keys(S.cards).length >= 200],
+    ["master20", "🧠", "Long memory", "20 cards in the 30-day box", () => Object.values(S.cards).filter((c) => c.b >= 6).length >= 20],
+    ["perfect", "💯", "Perfect score", "Get 100% on a quiz", () => Object.values(S.quiz).some((q) => q.best === 100)],
+    ["lessons10", "📘", "Grammar fan", "10 lessons at 80% or more", () => Object.entries(S.quiz).filter(([k, q]) => L[k] && q.best >= 80).length >= 10],
+    ["ear", "🎧", "Golden ear", "10 listening exercises", () => countK("listen") + countK("mock") >= 10],
+    ["book", "📖", "Bookworm", "10 reading exercises", () => countK("read") >= 10],
+    ["pen", "✍️", "Écrivain", "5 writing tasks scored", () => countK("write") >= 5],
+    ["voice", "🎤", "Chatterbox", "5 speaking tasks scored", () => countK("speak") >= 5],
+    ["fixer", "🩹", "Mistake slayer", "Fix 20 mistakes", () => (S.fixed || 0) >= 20],
+    ["video", "🎬", "Video learner", "Add 5 lesson videos", () => S.videos.length >= 5],
+    ["cp-images", "🖼️", "Picture perfect", "Pass checkpoint 1", () => S.cp.images && S.cp.images.passed],
+    ["cp-a1", "🌱", "A1 unlocked", "Pass the A1 checkpoint", () => S.cp.a1 && S.cp.a1.passed],
+    ["cp-a2", "🌿", "A2 unlocked", "Pass the A2 checkpoint", () => S.cp.a2 && S.cp.a2.passed],
+    ["cp-b", "🌳", "B1–B2 unlocked", "Pass the B1–B2 checkpoint", () => S.cp.b && S.cp.b.passed],
+    ["cp-pre", "🎯", "Exam ready", "Pass the Pre-TCF checkpoint", () => S.cp.pre && S.cp.pre.passed],
+    ["cp-camp", "🍁", "NCLC 7+", "Pass the final check", () => S.cp.camp && S.cp.camp.passed],
+  ];
+  function checkBadges() {
+    let delay = 500;
+    for (const b of BADGES) if (!S.badges[b[0]] && b[4]()) {
+      S.badges[b[0]] = todayStr(); S.xp = (S.xp || 0) + 20;
+      setTimeout(() => celebrate(`${b[1]} Badge unlocked: ${b[2]} (+20 XP)`), delay); delay += 900;
+    }
+  }
+  function updateHUD() {
+    const el = document.getElementById("hud"); if (!el) return;
+    const lv = levelInfo(), today = xpToday();
+    el.innerHTML = `<a href="#progress-badges" class="hud-in">
+      <div class="row" style="gap:8px;flex-wrap:nowrap"><span class="lvl-ico">${lv.icon}</span><div style="min-width:0"><b>${esc(lv.name)}</b><div class="small muted">Level ${lv.n} · ${lv.xp} XP</div></div></div>
+      <div class="bar xp"><i style="width:${lv.p}%"></i></div>
+      <div class="spread small"><span>🔥 ${streak()}</span><span>⚡ ${Math.min(today, DAILY_GOAL)}/${DAILY_GOAL}</span><span>🏆 ${Object.keys(S.badges).length}</span></div></a>`;
   }
 
   // ---------- speech (your browser's French voice) ----------
@@ -228,9 +322,14 @@
   function setDone(d, i, val) {
     const k = tkey(d, i), was = !!S.done[k];
     if (val === was) return;
-    if (val) { S.done[k] = todayStr(); addMinutes(taskInfo(PLAN[d - 1].tasks[i]).min); } else delete S.done[k];
+    if (val) {
+      S.done[k] = todayStr(); addMinutes(taskInfo(PLAN[d - 1].tasks[i]).min); justChecked = k;
+      gainXP(10, "task done");
+      if (dayState(PLAN[d - 1]) === "full") { gainXP(25, "day complete"); celebrate(`🎉 Day ${d} complete !`); }
+    } else { delete S.done[k]; gainXP(-10); }
     save();
   }
+  let justChecked = null;
   // When you open an activity from a task, finishing the activity ticks the task.
   let ctx = null;
   function finished(k, ref) {
@@ -297,6 +396,8 @@
       box.dataset.checked = "1";
       $("[data-check]", box).textContent = "Try again";
       $(".result", box).innerHTML = `<span class="score">${score}/${qs.length}</span> <span class="muted">${score / qs.length >= 0.8 ? "Très bien !" : score / qs.length >= 0.6 ? "Not bad. Review the red ones." : "Read the lesson again, then retry."}</span>`;
+      if (id !== "retry" || score) gainXP(score * 2, "quiz");
+      if (score === qs.length && qs.length >= 3) { gainXP(10, "perfect"); confetti(); }
       onDone && onDone(score, qs.length);
       save();
     });
@@ -312,7 +413,7 @@
     ["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Lessons"], ["words", "🖼️", "Words"], ["flash", "🃏", "Flashcards"],
     ["practice", "🎧", "Practice"], ["videos", "🎬", "Videos"], ["exam", "🎯", "TCF guide"], ["mistakes", "🩹", "Mistakes"], ["progress", "📈", "Progress"],
   ];
-  const TABS = [["today", "●", "Today"], ["roadmap", "◫", "Roadmap"], ["lessons", "▤", "Learn"], ["practice", "◎", "Practice"], ["more", "☰", "More"]];
+  const TABS = [["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Learn"], ["practice", "🎧", "Practice"], ["more", "☰", "More"]];
   const section = (r) => { const base = r.split("-")[0]; return { week: "roadmap", day: "roadmap", lesson: "lessons", cp: "roadmap", review: "lessons", vquiz: "words", listen: "practice", read: "practice", write: "practice", speak: "practice", sit: "practice", mock: "practice", "progress": "progress" }[base] || base; };
 
   function shell() {
@@ -322,9 +423,10 @@
       <div class="shell">
         <nav class="rail" aria-label="Main">
           <a class="brand" href="#today"><span class="flag"><i></i><i></i><i></i></span>Chemin TCF</a>
-          ${NAV.map(([r, i, n]) => `<a class="nav" data-r="${r}" href="#${r}">${n}</a>`).join("")}
+          <div id="hud" class="hud"></div>
+          ${NAV.map(([r, i, n]) => `<a class="nav" data-r="${r}" href="#${r}"><span class="ico">${i}</span>${n}</a>`).join("")}
           <div class="sep"></div>
-          <a class="nav" data-r="method" href="#method">How to use this</a>
+          <a class="nav" data-r="method" href="#method"><span class="ico">💡</span>How to use this</a>
           <div class="foot"><span id="syncnote">${syncNote}</span></div>
         </nav>
         <main class="main" id="main"></main>
@@ -346,7 +448,7 @@
     main.innerHTML = `<div class="page">${(pages[base] || pageToday)()}</div>`;
     window.scrollTo(0, 0);
     if (arg && (base === "exam" || base === "progress")) { const el = document.getElementById("sec-" + arg); if (el) el.scrollIntoView(); }
-    after.forEach((f) => f(main)); after = [];
+    after.forEach((f) => f(main)); after = []; justChecked = null; updateHUD();
   }
   let after = [];
   const later = (f) => after.push(f);
@@ -383,6 +485,7 @@
         </div>
         ${ring(pct(done, TOTAL_DAYS), "of plan")}
       </section>
+      ${playerCard()}
       ${setup}
       ${gate}
       <div class="card">
@@ -391,11 +494,12 @@
         ${taskList(day)}
       </div>
       <div class="stats">
-        <div class="stat"><div class="label">Streak</div><div class="v">${streak()}</div></div>
-        <div class="stat"><div class="label">Cards due</div><div class="v">${dueN}</div></div>
-        <div class="stat"><div class="label">Mistakes to fix</div><div class="v">${S.errors.length}</div></div>
-        <div class="stat"><div class="label">Study time</div><div class="v">${Math.round(Object.values(S.mins).reduce((a, b) => a + b, 0) / 60)} h</div></div>
+        <div class="stat"><div class="label">Streak</div><div class="v">🔥 ${streak()}</div><div class="small muted">best ${S.best || 0}</div></div>
+        <div class="stat"><div class="label">Cards due</div><div class="v">🃏 ${dueN}</div><a class="small" href="#flash">review</a></div>
+        <div class="stat"><div class="label">Mistakes to fix</div><div class="v">🩹 ${S.errors.length}</div><a class="small" href="#mistakes">fix them</a></div>
+        <div class="stat"><div class="label">Badges</div><div class="v">🏆 ${Object.keys(S.badges).length}/${BADGES.length}</div><a class="small" href="#progress-badges">see all</a></div>
       </div>
+      ${nextBadgeCard()}
       <div class="card">
         <div class="spread"><h3>Why this phase? ${esc(ph.en)}</h3><span class="chip">${esc(ph.months)}</span></div>
         <p>${md(ph.simple)}</p>
@@ -404,6 +508,18 @@
       <div class="card"><div class="spread"><h3>Your 273-day board</h3><a class="small" href="#roadmap">See the roadmap</a></div>${board(nd)}</div>`;
   }
 
+  function playerCard() {
+    const lv = levelInfo(), today = xpToday(), g = Math.min(100, pct(today, DAILY_GOAL));
+    return `<div class="card player">
+      <div class="player-lv"><span class="lvl-big">${lv.icon}</span><div class="stack" style="gap:2px;min-width:0;flex:1"><span class="label">Level ${lv.n}</span><b class="lvl-name">${esc(lv.name)}</b>
+        <div class="bar xp"><i style="width:${lv.p}%"></i></div><span class="small muted">${lv.next ? `${lv.need} XP to ${lv.next[1]} ${esc(lv.next[2])}` : "Top level reached"}</span></div></div>
+      <div class="player-goal"><span class="label">Daily goal</span><div class="goal"><span class="goal-v num">⚡ ${today}</span><span class="muted small">/ ${DAILY_GOAL} XP</span></div><div class="bar gold"><i style="width:${g}%"></i></div><span class="small muted">${today >= DAILY_GOAL ? "Goal reached. Keep going !" : "Each task = 10 XP. A full day = +25."}</span></div>
+    </div>`;
+  }
+  function nextBadgeCard() {
+    const b = BADGES.find((x) => !S.badges[x[0]]); if (!b) return "";
+    return `<a class="card next-badge" href="#progress-badges"><span class="badge-ico locked">${b[1]}</span><div style="min-width:0"><span class="label">Next badge</span><div><b>${esc(b[2])}</b> · <span class="muted">${esc(b[3])}</span></div></div><span class="chip gold">+20 XP</span></a>`;
+  }
   function gateWarning(wk) {
     const idx = PHASES.findIndex((p) => p.id === wk.phase);
     if (idx <= 0) return "";
@@ -437,8 +553,9 @@
     return `<div class="tasks">${day.tasks.map((t, i) => {
       const info = taskInfo(t), isDone = !!S.done[tkey(day.d, i)];
       const lines = t.lines && t.lines.length ? `<div class="inline-say">${t.lines.map((x) => /^Talk for/.test(x) ? `<div class="muted small">${esc(x)}</div>` : `<div>${sayBtn(x.replace(/…|\(.*?\)/g, ""))}<span>${esc(x)}</span></div>`).join("")}</div>` : "";
-      return `<div class="task${isDone ? " done" : ""}" data-d="${day.d}" data-i="${i}">
+      return `<div class="task${isDone ? " done" : ""}${justChecked === tkey(day.d, i) ? " pop" : ""}" data-d="${day.d}" data-i="${i}">
         <button class="check" aria-label="Mark done">${isDone ? "✓" : ""}</button>
+        <span class="ico">${info.icon}</span>
         <div class="lbl"><span>${esc(info.label)}</span>${info.sub ? `<small>${esc(info.sub)}</small>` : ""}${lines}</div>
         <div class="go">${info.min ? `<span class="chip num">${info.min}′</span>` : ""}${info.href ? `<a class="btn small" href="${info.href}">Start</a>` : ""}</div>
       </div>`;
@@ -457,7 +574,7 @@
         const cp = window.CHECKPOINTS[p.id], cps = S.cp[p.id];
         return `<section class="card phase ${p.color}">
           <div class="spread"><div class="stack" style="gap:4px"><span class="label">Phase ${p.n} · ${esc(p.months)} · weeks ${p.weeks[0]}–${p.weeks[1]}</span><h2>${esc(p.name)}</h2><span class="muted">${esc(p.en)}</span></div>
-          ${cp ? `<a class="chip ${cps && cps.passed ? "good" : ""}" href="#cp-${p.id}">${cps && cps.passed ? "Passed " + cps.score + "%" : "Checkpoint"}</a>` : ""}</div>
+          ${cp ? `<a class="chip ${cps && cps.passed ? "good" : ""}" href="#cp-${p.id}">🏁 ${cps && cps.passed ? "Passed " + cps.score + "%" : "Checkpoint"}</a>` : ""}</div>
           <p>${md(p.simple)}</p>
           <div class="note analogy"><b>Think of it like this</b>${md(p.analogy)}</div>
           <div><span class="label">By the end you can</span><ul class="points">${p.outcomes.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div>
@@ -543,7 +660,7 @@
   }
   function pageTheme(id) {
     const t = V[id]; if (!t) return pageWords();
-    later((m) => { $("#addtheme", m).onclick = () => { addTheme(id); finished("vocab", id); toast("Added to your flashcards"); render(); }; });
+    later((m) => { $("#addtheme", m).onclick = () => { addTheme(id); gainXP(10, "new words"); finished("vocab", id); render(); }; });
     return `<div class="crumbs"><a href="#words">Words</a> › <span>${esc(t.title)}</span></div>
       <div class="spread"><h1>${t.icon} ${esc(t.title)}</h1><div class="row"><button class="btn" data-sayall="${esc(t.words.map((w) => w[0]).join(". "))}">🔊 Play all</button><button class="btn primary" id="addtheme">${S.learned[id] ? "✓ In flashcards (add again)" : "I've learned these: add to flashcards"}</button></div></div>
       ${t.note ? `<div class="note"><b>Tip</b>${esc(t.note)}</div>` : ""}
@@ -575,7 +692,7 @@
       const card = $("#fc", m);
       const show = (reveal) => {
         if (i >= due.length) {
-          log("vocab", "flash", known, due.length); save(); finished("flash", undefined);
+          log("vocab", "flash", known, due.length); gainXP(known * 2 + 5, "flashcards"); save(); finished("flash", undefined);
           card.innerHTML = `<h2>Session done</h2><p class="score">${known}/${due.length}</p><p class="muted">Cards you missed come back tomorrow.</p><a class="btn" href="#today">Back to today</a>`; return;
         }
         const k = due[i], w = wordOf(k);
@@ -610,12 +727,12 @@
     const done = (o) => (o ? `<span class="chip good">${o.score != null ? o.score + "/20" : "saved"}</span>` : "");
     const item = (href, title, level, extra) => `<a class="wk" href="${href}"><span class="row" style="gap:6px"><span class="chip blue">${level}</span>${extra || ""}</span><b>${esc(title)}</b></a>`;
     return `<div class="stack"><span class="label">The four TCF skills</span><h1>Practice</h1><p class="muted">Listening is read aloud by your device's French voice, so you hear it before you see the text. Writing and speaking come with timers, checklists, model answers and a self-score out of 20.</p></div>
-      <section class="card"><h2>Listening (compréhension orale)</h2><div class="weeks">${window.LISTENING.map((x) => item("#listen-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
-      <section class="card"><h2>Reading (compréhension écrite)</h2><div class="weeks">${window.READING.map((x) => item("#read-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
-      <section class="card"><h2>Writing (expression écrite)</h2><div class="weeks">${window.WRITING.map((x) => item("#write-" + x.id, x.en, "Task " + x.task, done(S.writing[x.id]))).join("")}</div></section>
-      <section class="card"><h2>Speaking (expression orale)</h2><div class="weeks">${window.SPEAKING.map((x) => item("#speak-" + x.id, x.en, "Task " + x.task, done(S.speaking[x.id]))).join("")}</div></section>
-      <section class="card"><h2>Real-life situations</h2><div class="grid tight">${window.SITUATIONS.map((x) => `<a class="wcard theme" href="#sit-${x.id}"><span class="pic">${x.icon}</span><b>${esc(x.title)}</b></a>`).join("")}</div></section>
-      <section class="card"><h2>Timed mini-tests</h2><p class="muted small">A listening set + a reading set at B1–B2 level, timed. Used every day in the TCF Camp.</p><a class="btn" href="#mock-1">Start a mini-test</a></section>`;
+      <section class="card"><h2>🎧 Listening (compréhension orale)</h2><div class="weeks">${window.LISTENING.map((x) => item("#listen-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
+      <section class="card"><h2>📖 Reading (compréhension écrite)</h2><div class="weeks">${window.READING.map((x) => item("#read-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
+      <section class="card"><h2>✍️ Writing (expression écrite)</h2><div class="weeks">${window.WRITING.map((x) => item("#write-" + x.id, x.en, "Task " + x.task, done(S.writing[x.id]))).join("")}</div></section>
+      <section class="card"><h2>🗣️ Speaking (expression orale)</h2><div class="weeks">${window.SPEAKING.map((x) => item("#speak-" + x.id, x.en, "Task " + x.task, done(S.speaking[x.id]))).join("")}</div></section>
+      <section class="card"><h2>🎭 Real-life situations</h2><div class="grid tight">${window.SITUATIONS.map((x) => `<a class="wcard theme" href="#sit-${x.id}"><span class="pic">${x.icon}</span><b>${esc(x.title)}</b></a>`).join("")}</div></section>
+      <section class="card"><h2>⏱️ Timed mini-tests</h2><p class="muted small">A listening set + a reading set at B1–B2 level, timed. Used every day in the TCF Camp.</p><a class="btn" href="#mock-1">Start a mini-test</a></section>`;
   }
 
   function mcqBlock(set, kind) {
@@ -670,7 +787,7 @@
       $("#wscore", m).onclick = () => {
         const s = rubricScore(m, "wr", 5);
         S.writing[id] = Object.assign(S.writing[id] || {}, { text: ta.value, score: s, t: Date.now() });
-        log("write", id, s, 20); save(); finished("write", id); toast(`Saved: ${s}/20`); render();
+        log("write", id, s, 20); gainXP(15, "writing"); save(); finished("write", id); toast(`Saved: ${s}/20`); render();
       };
     });
     return `<div class="crumbs"><a href="#practice">Practice</a> › <span>Writing task ${x.task}</span></div>
@@ -730,7 +847,7 @@
       if (x.prep) timerWidget(m, "#ptimer", x.prep);
       wireRecorder(m);
       const mb = $("#showmodel", m); if (mb) mb.onclick = () => { $("#model", m).hidden = !$("#model", m).hidden; };
-      $("#sscore", m).onclick = () => { const s = rubricScore(m, "sr", 5); S.speaking[id] = { score: s, t: Date.now() }; log("speak", id, s, 20); save(); finished("speak", id); toast(`Saved: ${s}/20`); render(); };
+      $("#sscore", m).onclick = () => { const s = rubricScore(m, "sr", 5); S.speaking[id] = { score: s, t: Date.now() }; log("speak", id, s, 20); gainXP(15, "speaking"); save(); finished("speak", id); toast(`Saved: ${s}/20`); render(); };
     });
     return `<div class="crumbs"><a href="#practice">Practice</a> › <span>Speaking task ${x.task}</span></div>
       <div class="stack"><span class="label">Speaking task ${x.task} · ${x.prep ? "2 min preparation · " : "no preparation · "}${Math.floor(x.time / 60)} min ${x.time % 60 ? x.time % 60 + " s" : ""}</span><h1>${esc(x.en)}</h1></div>
@@ -783,7 +900,7 @@
         const url = $("#v-url", root).value.trim(), title = $("#v-title", root).value.trim();
         if (!url && !title) { $("#v-err", root).textContent = "Add a link or a title so you can find the video again."; return; }
         S.videos.push({ id: Date.now(), url, title, w: +$("#v-week", root).value || wn, lesson: $("#v-lesson", root).value, notes: $("#v-notes", root).value, questions: $("#v-q", root).value, steps: {} });
-        save(); finished("video", undefined); toast("Video added"); render();
+        gainXP(10, "video"); save(); finished("video", undefined); render();
       };
       $$("[data-vstep]", root).forEach((c) => (c.onchange = () => { const v = S.videos.find((x) => x.id === +c.dataset.v); v.steps[c.dataset.vstep] = c.checked; save(); }));
       $$("[data-vdel]", root).forEach((b) => (b.onclick = () => { if (b.dataset.sure) { S.videos = S.videos.filter((x) => x.id !== +b.dataset.vdel); save(); render(); } else { b.dataset.sure = 1; b.textContent = "Tap again to delete"; } }));
@@ -823,7 +940,7 @@
       finished("exam", (location.hash.split("-")[1] || ""));
     });
     return `<div class="stack"><span class="label">TCF Canada</span><h1>The exam, explained</h1><p class="muted">Everything about the test format, scores and strategies, in plain English.</p></div>
-      ${Object.entries(E).map(([k, s]) => `<section class="card" id="sec-${k}"><h2>${esc(s.title)}</h2><ul class="points">${s.body.map((b) => `<li>${md(b)}</li>`).join("")}</ul>
+      ${Object.entries(E).map(([k, s]) => `<section class="card" id="sec-${k}"><h2>${s.icon} ${esc(s.title)}</h2><ul class="points">${s.body.map((b) => `<li>${md(b)}</li>`).join("")}</ul>
         ${s.table ? `<div class="table-wrap"><table><thead><tr>${s.table[0].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${s.table.slice(1).map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${i ? c : "<b>" + c + "</b>"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
         <div id="calc" class="stack"><span class="label">Score converter</span><div class="grid tight">
           <div class="field"><label for="c-co">Listening /699</label><input type="number" id="c-co" value="458" min="0" max="699"></div>
@@ -837,7 +954,7 @@
   function pageMistakes() {
     const errs = S.errors.slice(0, 40);
     later((m) => {
-      $$("[data-fix]", m).forEach((b) => (b.onclick = () => { S.errors.splice(+b.dataset.fix, 1); save(); render(); }));
+      $$("[data-fix]", m).forEach((b) => (b.onclick = () => { S.errors.splice(+b.dataset.fix, 1); S.fixed = (S.fixed || 0) + 1; gainXP(3, "mistake fixed"); save(); render(); }));
       const r = $("#retry", m); if (r) r.onclick = () => {
         const qs = shuffle(S.errors).slice(0, 10).map((e) => e.qq || { t: "fill", q: e.q + "  (type the answer)", a: [e.right], why: e.why });
         $("#retrybox", m).innerHTML = quizHTML(qs, "retry");
@@ -869,7 +986,7 @@
       wireQuiz(m, qs, "cp-" + id, (s, n) => {
         const p = Math.round((s / n) * 100), cando = $$("[data-cando]", m).every((c) => c.checked);
         S.cp[id] = { score: p, passed: p >= 70 && cando, t: Date.now() }; log("checkpoint", id, s, n); save();
-        if (S.cp[id].passed) finished("checkpoint", id);
+        if (S.cp[id].passed) { gainXP(100, "checkpoint"); celebrate("🏁 Checkpoint passed. Next level unlocked !"); finished("checkpoint", id); }
         $("#cpres", m).innerHTML = S.cp[id].passed ? `<div class="note ok"><b>Passed</b>${p}%. You're ready for the next level. Félicitations !</div>` : `<div class="note alert"><b>Not yet</b>${p}%${cando ? "" : " and some can-do statements aren't ticked"}. You need 70% and every box ticked. Review your Mistakes notebook, then try again. No rush: being fully ready is what makes the next level easy.</div>`;
       });
     });
@@ -888,18 +1005,18 @@
     return Math.round((h.reduce((a, x) => a + x.s / x.m, 0) / h.length) * 100);
   }
   function pageProgress() {
-    const skills = [["Listening", ["listen", "mock"]], ["Reading", ["read"]], ["Writing", ["write"]], ["Speaking", ["speak"]], ["Grammar", ["lesson"]], ["Vocabulary", ["vocab"]]];
+    const skills = [["🎧 Listening", ["listen", "mock"]], ["📖 Reading", ["read"]], ["✍️ Writing", ["write"]], ["🗣️ Speaking", ["speak"]], ["📘 Grammar", ["lesson"]], ["🖼️ Vocabulary", ["vocab"]]];
     const vals = skills.map(([n, k]) => [n, skillAvg(k), k]);
-    const known = vals.filter((v) => v[1] != null && v[0] !== "Grammar" && v[0] !== "Vocabulary");
+    const known = vals.filter((v) => v[1] != null && v[0] !== "📘 Grammar" && v[0] !== "🖼️ Vocabulary");
     const weakest = known.sort((a, b) => a[1] - b[1])[0];
     const daysDone = PLAN.filter((x) => dayState(x) === "full").length;
     const last14 = Array.from({ length: 14 }, (_, i) => addDays(todayStr(), i - 13));
     const maxM = Math.max(30, ...last14.map((d) => S.mins[d] || 0));
     const tips = {
-      "Listening": ["Do one extra listening set every day this week", "Replay each recording slowly after answering and read the transcript", "Listen to 15 minutes of Radio-Canada or a French podcast daily"],
-      "Reading": ["Do one extra reading text a day", "Time yourself: 1 minute per short question", "Read one short news article in French each day"],
-      "Writing": ["Write one task-1 message and one task-3 text this week", "Compare with the model answers and fix 3 mistakes each time", "Learn 5 new connectors"],
-      "Speaking": ["Record one task-3 voice note every day", "Repeat your task-1 introduction until it lasts 2 minutes", "Do 2 real-life situations a week"],
+      "🎧 Listening": ["Do one extra listening set every day this week", "Replay each recording slowly after answering and read the transcript", "Listen to 15 minutes of Radio-Canada or a French podcast daily"],
+      "📖 Reading": ["Do one extra reading text a day", "Time yourself: 1 minute per short question", "Read one short news article in French each day"],
+      "✍️ Writing": ["Write one task-1 message and one task-3 text this week", "Compare with the model answers and fix 3 mistakes each time", "Learn 5 new connectors"],
+      "🗣️ Speaking": ["Record one task-3 voice note every day", "Repeat your task-1 introduction until it lasts 2 minutes", "Do 2 real-life situations a week"],
     };
     later((m) => {
       $("#exp", m).onclick = async () => { const txt = JSON.stringify(S); $("#bk", m).value = txt; try { await navigator.clipboard.writeText(txt); toast("Copied. Paste it somewhere safe."); } catch (e) { $("#bk", m).select(); toast("Select all and copy the text"); } };
@@ -911,13 +1028,17 @@
       finished("plan", undefined);
     });
     return `<div class="stack"><span class="label">Your progress</span><h1>How you're doing</h1></div>
-      <div class="stats"><div class="stat"><div class="label">Days done</div><div class="v">${daysDone}/${TOTAL_DAYS}</div></div><div class="stat"><div class="label">Streak</div><div class="v">${streak()}</div></div>
-        <div class="stat"><div class="label">Words in deck</div><div class="v">${Object.keys(S.cards).length}</div></div><div class="stat"><div class="label">Quizzes taken</div><div class="v">${S.hist.length}</div></div></div>
+      <div class="stats"><div class="stat"><div class="label">Days done</div><div class="v">${daysDone}/${TOTAL_DAYS}</div></div><div class="stat"><div class="label">Streak</div><div class="v">${streak()} 🔥</div></div>
+        <div class="stat"><div class="label">Words in deck</div><div class="v">${Object.keys(S.cards).length}</div></div><div class="stat"><div class="label">Total XP</div><div class="v">⚡ ${S.xp || 0}</div></div></div>
       <div class="card"><h3>273-day board</h3>${board(nextDay())}</div>
+      <div class="card" id="sec-badges"><div class="spread"><h3>🏆 Badges</h3><span class="chip gold">${Object.keys(S.badges).length}/${BADGES.length}</span></div>
+        <div class="badges">${BADGES.map((b) => `<div class="badge${S.badges[b[0]] ? "" : " locked"}" title="${esc(b[3])}"><span class="badge-ico">${b[1]}</span><b>${esc(b[2])}</b><span class="small muted">${S.badges[b[0]] ? "✓ " + S.badges[b[0]] : "🔒 " + esc(b[3])}</span></div>`).join("")}</div></div>
+      <div class="card"><h3>🪜 Levels</h3><div class="levels">${LEVELS.map((l, i) => `<div class="lvl${levelInfo().i === i ? " now" : levelInfo().i > i ? " got" : ""}"><span>${l[1]}</span><div style="min-width:0"><b>${esc(l[2])}</b><div class="num small muted">${l[0]} XP</div></div></div>`).join("")}</div>
+        <p class="small muted">Tasks 10 XP · full day +25 · each correct answer 2 · perfect quiz +10 · writing or speaking +15 · checkpoint +100 · badge +20.</p></div>
       <div class="card"><h3>Phases</h3><div class="stack">${PHASES.map((p) => { const ds = PLAN.filter((d) => d.phase === p.id); const n = ds.filter((d) => dayState(d) === "full").length; return `<div class="skill"><span class="small">${p.n}. ${esc(p.name)}</span><div class="bar"><i style="width:${pct(n, ds.length)}%"></i></div><span class="num small">${pct(n, ds.length)}%</span></div>`; }).join("")}</div></div>
       <div class="card"><h3>Skills (average of your last 6 scores)</h3><div class="stack">${vals.map(([n, v]) => `<div class="skill"><span class="small">${n}</span><div class="bar ${v >= 70 ? "good" : ""}"><i style="width:${v || 0}%"></i></div><span class="num small">${v == null ? "–" : v + "%"}</span></div>`).join("")}</div>
         <p class="small muted">70% on these practice sets is a good sign you're near NCLC 7 for that skill. They are not official TCF scores.</p></div>
-      <div class="card" id="sec-plan"><h3>Your focus this week</h3>${weakest ? `<p>Your weakest skill right now is <b>${weakest[0]}</b> (${weakest[1]}%). Add this to your week:</p><ul class="points">${tips[weakest[0]].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : `<p class="muted">Do at least one listening, reading, writing and speaking exercise, and this card will tell you which skill needs the most work.</p>`}</div>
+      <div class="card" id="sec-plan"><h3>🧭 Your focus this week</h3>${weakest ? `<p>Your weakest skill right now is <b>${weakest[0]}</b> (${weakest[1]}%). Add this to your week:</p><ul class="points">${tips[weakest[0]].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : `<p class="muted">Do at least one listening, reading, writing and speaking exercise, and this card will tell you which skill needs the most work.</p>`}</div>
       <div class="card"><h3>Study minutes, last 14 days</h3><div class="minibars">${last14.map((d) => `<div style="height:${pct(S.mins[d] || 0, maxM)}%" title="${d}: ${S.mins[d] || 0} min"></div>`).join("")}</div><div class="minibars-labels">${last14.map((d) => `<span>${d.slice(8)}</span>`).join("")}</div></div>
       <div class="card"><h3>Checkpoints</h3><ul class="clean">${Object.entries(window.CHECKPOINTS).map(([k, c]) => `<li class="spread"><a href="#cp-${k}">${esc(c.title)}</a>${S.cp[k] ? `<span class="chip ${S.cp[k].passed ? "good" : "warn"}">${S.cp[k].score}%${S.cp[k].passed ? " ✓" : ""}</span>` : `<span class="chip">not taken</span>`}</li>`).join("")}</ul></div>
       <div class="card"><h3>Recent activity</h3>${S.hist.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Activity</th><th>Score</th></tr></thead><tbody>${S.hist.slice(-12).reverse().map((h) => `<tr><td class="num">${new Date(h.t).toISOString().slice(0, 10)}</td><td>${esc(h.k)} · ${esc(h.id)}</td><td class="num">${h.s}/${h.m}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Nothing yet.</p>`}</div>
@@ -945,7 +1066,7 @@
       <p class="small muted">The 🔊 buttons use your device's French voice. On a phone or computer without a French voice, install one in your system's language settings.</p></div>`;
   }
   function pageMore() {
-    return `<h1>More</h1><div class="grid tight">${NAV.concat([["method", "💡", "How to use this"]]).map(([r, i, n]) => `<a class="wk" href="#${r}"><b>${n}</b></a>`).join("")}</div>`;
+    return `<h1>More</h1><div class="grid tight">${NAV.concat([["method", "💡", "How to use this"]]).map(([r, i, n]) => `<a class="wcard theme" href="#${r}"><span class="pic">${i}</span><b>${n}</b></a>`).join("")}</div>`;
   }
 
   // ---------- global events ----------
