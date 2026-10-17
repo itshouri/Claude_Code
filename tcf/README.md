@@ -27,6 +27,7 @@ Each phase ends with a **checkpoint** (70% + every can-do statement ticked), bec
 - **Videos**: add the lesson videos you receive to the right week and lesson, with the video study method.
 - **TCF guide**: format, NCLC score table and converter, strategies, exam-day checklist.
 - **Mistakes**: every wrong answer, ready to redo.
+- **Sound**: picks the most natural French voice on your device (or choose one), adjustable speed, tap 🔊 again to stop, and long texts read sentence by sentence. Game sound effects (ticks, coins, chimes, level-up fanfare) are generated in the browser, with volume and a mute button.
 - **Game layer**: XP for every task and quiz, 10 levels (🌱 Débutant → 🍁 Prêt pour le Canada), a 50 XP daily goal, streaks, 23 badges and small celebrations.
 - **Progress**: badges, levels, skill bars, study minutes, checkpoints, your focus for the week, backup and restore.
 

@@ -30,7 +30,7 @@
 
   // ---------- state (saved in this browser, and in your claude.ai account when available) ----------
   const KEY = "chemin-tcf-v1";
-  const blank = () => ({ v: 1, updated: 0, xp: 0, xpDay: {}, badges: {}, fixed: 0, best: 0, name: "", start: "", accent: "fr-FR", done: {}, quiz: {}, hist: [], errors: [], cards: {}, writing: {}, speaking: {}, videos: [], cp: {}, mins: {}, override: {}, learned: {} });
+  const blank = () => ({ v: 1, updated: 0, sfx: true, vol: 0.7, voice: "", rateMul: 1, xp: 0, xpDay: {}, badges: {}, fixed: 0, best: 0, name: "", start: "", accent: "fr-FR", done: {}, quiz: {}, hist: [], errors: [], cards: {}, writing: {}, speaking: {}, videos: [], cp: {}, mins: {}, override: {}, learned: {} });
   let S = blank();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) { /* storage blocked: start fresh */ }
   let remote = null, saveTimer = null, syncNote = "Saved in this browser";
@@ -80,6 +80,7 @@
   function showBig(box) {
     if (!bigQueue.length) return;
     const t = document.createElement("div"); t.className = "toast big"; t.textContent = bigQueue[0]; box.appendChild(t);
+    const m = bigQueue[0]; sfx(/Level \d/.test(m) ? "levelup" : /Badge/.test(m) ? "badge" : /Day \d|Checkpoint/.test(m) ? "day" : "goal");
     setTimeout(() => { t.remove(); bigQueue.shift(); showBig(box); }, 2000);
   }
 
@@ -100,7 +101,7 @@
     if (!n) return;
     const before = levelInfo().i, goalBefore = xpToday() >= DAILY_GOAL, d = todayStr();
     S.xp = Math.max(0, (S.xp || 0) + n); S.xpDay[d] = Math.max(0, (S.xpDay[d] || 0) + n);
-    if (n > 0) floatXP(n, why);
+    if (n > 0) { floatXP(n, why); setTimeout(() => sfx("coin"), 140); }
     const after = levelInfo();
     if (after.i > before) celebrate(`${after.icon} Level ${after.n}: ${after.name} !`);
     else if (!goalBefore && xpToday() >= DAILY_GOAL) celebrate("⚡ Daily goal reached. Bravo !");
@@ -163,23 +164,87 @@
     el.innerHTML = `<a href="#progress-badges" class="hud-in">
       <div class="row" style="gap:8px;flex-wrap:nowrap"><span class="lvl-ico">${lv.icon}</span><div style="min-width:0"><b>${esc(lv.name)}</b><div class="small muted">Level ${lv.n} · ${lv.xp} XP</div></div></div>
       <div class="bar xp"><i style="width:${lv.p}%"></i></div>
-      <div class="spread small"><span>🔥 ${streak()}</span><span>⚡ ${Math.min(today, DAILY_GOAL)}/${DAILY_GOAL}</span><span>🏆 ${Object.keys(S.badges).length}</span></div></a>`;
+      <div class="spread small"><span>🔥 ${streak()}</span><span>⚡ ${Math.min(today, DAILY_GOAL)}/${DAILY_GOAL}</span><span>🏆 ${Object.keys(S.badges).length}</span></div></a>
+      <button class="btn small ghost hud-mute" data-mute title="Sound effects on/off">${S.sfx === false ? "🔇 Sounds off" : "🔔 Sounds on"}</button>`;
   }
 
   // ---------- speech (your browser's French voice) ----------
+  // Picks the most natural French voice on your device. Natural/neural/premium voices
+  // sound like a real person; basic ones sound robotic. You can change it in Progress → Sound.
   let voices = [];
   function loadVoices() { try { voices = speechSynthesis.getVoices().filter((v) => /^fr/i.test(v.lang)); } catch (e) { voices = []; } }
-  if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
-  function speak(text, rate) {
-    if (!("speechSynthesis" in window)) { toast("Your browser has no speech voice. Try Chrome or Safari."); return; }
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(String(text).replace(/[—–]/g, ",").replace(/‿/g, ""));
-    u.lang = S.accent || "fr-FR";
-    const v = voices.find((x) => x.lang.replace("_", "-") === u.lang) || voices[0];
-    if (v) u.voice = v;
-    u.rate = rate || 0.9;
-    speechSynthesis.speak(u);
+  if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = () => { const had = voices.length; loadVoices(); if (!had && voices.length && /^#progress/.test(location.hash)) render(); }; }
+  function voiceScore(v) {
+    let n = 0;
+    if (/natural|neural|online|premium|enhanced|wavenet/i.test(v.name)) n += 10;
+    if (/google/i.test(v.name)) n += 6;
+    if (/amélie|amelie|thomas|audrey|aurélie|denise|henri|sylvie|antoine|jean|vivienne|eloise|remy|chantal|félix|felix/i.test(v.name)) n += 3;
+    if (v.lang.replace("_", "-").toLowerCase() === (S.accent || "fr-FR").toLowerCase()) n += 4;
+    if (v.localService === false) n += 1;
+    return n;
   }
+  function bestVoice() {
+    if (!voices.length) loadVoices();
+    if (S.voice) { const v = voices.find((x) => x.voiceURI === S.voice); if (v) return v; }
+    return voices.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
+  }
+  let speakingBtn = null;
+  function stopSpeaking() { try { speechSynthesis.cancel(); } catch (e) {} if (speakingBtn) speakingBtn.classList.remove("speaking"); speakingBtn = null; }
+  function speak(text, rate, btn) {
+    if (!("speechSynthesis" in window)) { toast("Your browser has no speech voice. Try Chrome or Safari."); return; }
+    if (btn && btn === speakingBtn) { stopSpeaking(); return; } // tap again = stop
+    stopSpeaking();
+    const clean = String(text).replace(/[—–]/g, ", ").replace(/‿/g, "").replace(/…/g, "").replace(/\s+/g, " ").trim();
+    // Long texts are split into sentences: some browsers stop speaking after ~15 seconds otherwise.
+    const parts = clean.match(/[^.!?;:]+[.!?;:]*\s*/g) || [clean];
+    const v = bestVoice();
+    if (btn) { speakingBtn = btn; btn.classList.add("speaking"); }
+    parts.forEach((p, i) => {
+      const u = new SpeechSynthesisUtterance(p.trim());
+      u.lang = v ? v.lang : S.accent || "fr-FR";
+      if (v) u.voice = v;
+      u.rate = Math.max(0.5, Math.min(1.4, (rate || 0.9) * (S.rateMul || 1)));
+      u.pitch = 1;
+      if (i === parts.length - 1) u.onend = u.onerror = () => { if (speakingBtn === btn && btn) { btn.classList.remove("speaking"); speakingBtn = null; } };
+      speechSynthesis.speak(u);
+    });
+  }
+
+  // ---------- sound effects: generated live with Web Audio, so there are no files to load ----------
+  let actx = null;
+  function audio() {
+    if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; try { actx = new C(); } catch (e) { return null; } }
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  }
+  function tone(freq, at, dur, type, vol, slideTo) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    const peak = Math.max(0.0002, (vol || 0.15) * (S.vol == null ? 0.7 : S.vol));
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const notes = (list, gap, dur, type, vol) => list.forEach((f, i) => tone(f, i * gap, i === list.length - 1 ? dur * 2.2 : dur, type, vol));
+  const SFX = {
+    tap: () => tone(700, 0, 0.05, "triangle", 0.07),
+    check: () => { tone(587, 0, 0.08, "triangle", 0.16); tone(880, 0.07, 0.16, "triangle", 0.16); },
+    uncheck: () => tone(440, 0, 0.12, "triangle", 0.1, 280),
+    coin: () => { tone(988, 0, 0.06, "square", 0.05); tone(1319, 0.055, 0.18, "square", 0.05); },
+    correct: () => notes([784, 1047, 1319], 0.08, 0.1, "sine", 0.15),
+    okay: () => notes([659, 784], 0.09, 0.12, "sine", 0.13),
+    wrong: () => { tone(330, 0, 0.14, "sawtooth", 0.05, 220); tone(247, 0.12, 0.2, "sawtooth", 0.05, 180); },
+    flip: () => tone(420, 0, 0.08, "sine", 0.09, 900),
+    yes: () => notes([880, 1175], 0.06, 0.09, "sine", 0.13),
+    no: () => tone(300, 0, 0.16, "triangle", 0.09, 200),
+    goal: () => notes([523, 659, 784, 1047], 0.09, 0.12, "triangle", 0.14),
+    badge: () => { notes([784, 988, 1175, 1568], 0.07, 0.12, "sine", 0.13); tone(2093, 0.32, 0.4, "sine", 0.05); },
+    levelup: () => { notes([392, 523, 659, 784, 1047], 0.1, 0.13, "square", 0.06); notes([523, 659, 784, 1047, 1319], 0.1, 0.13, "triangle", 0.1); },
+    day: () => { notes([523, 523, 659, 784], 0.12, 0.1, "triangle", 0.14); tone(1047, 0.5, 0.5, "triangle", 0.14); tone(784, 0.5, 0.5, "sine", 0.08); },
+    alarm: () => [0, 0.3, 0.6].forEach((t) => { tone(880, t, 0.15, "square", 0.07); tone(1175, t + 0.15, 0.12, "square", 0.06); }),
+  };
+  function sfx(name) { if (S.sfx === false) return; try { SFX[name] && SFX[name](); } catch (e) { /* audio blocked */ } }
   const sayBtn = (text, rate) => `<button class="say" data-say="${esc(text)}"${rate ? ` data-rate="${rate}"` : ""} aria-label="Listen" title="Listen">🔊</button>`;
 
   // ---------- the day plan ----------
@@ -323,10 +388,10 @@
     const k = tkey(d, i), was = !!S.done[k];
     if (val === was) return;
     if (val) {
-      S.done[k] = todayStr(); addMinutes(taskInfo(PLAN[d - 1].tasks[i]).min); justChecked = k;
+      S.done[k] = todayStr(); addMinutes(taskInfo(PLAN[d - 1].tasks[i]).min); justChecked = k; sfx("check");
       gainXP(10, "task done");
       if (dayState(PLAN[d - 1]) === "full") { gainXP(25, "day complete"); celebrate(`🎉 Day ${d} complete !`); }
-    } else { delete S.done[k]; gainXP(-10); }
+    } else { delete S.done[k]; sfx("uncheck"); gainXP(-10); }
     save();
   }
   let justChecked = null;
@@ -367,7 +432,7 @@
     if (!box) return;
     box.addEventListener("click", (e) => {
       const o = e.target.closest(".opt");
-      if (o && !box.dataset.checked) { $$(".opt", o.parentElement).forEach((x) => x.classList.remove("sel")); o.classList.add("sel"); }
+      if (o && !box.dataset.checked) { $$(".opt", o.parentElement).forEach((x) => x.classList.remove("sel")); o.classList.add("sel"); sfx("tap"); }
     });
     $("[data-check]", box).addEventListener("click", () => {
       if (box.dataset.checked) { // retry
@@ -396,6 +461,7 @@
       box.dataset.checked = "1";
       $("[data-check]", box).textContent = "Try again";
       $(".result", box).innerHTML = `<span class="score">${score}/${qs.length}</span> <span class="muted">${score / qs.length >= 0.8 ? "Très bien !" : score / qs.length >= 0.6 ? "Not bad. Review the red ones." : "Read the lesson again, then retry."}</span>`;
+      sfx(score === qs.length ? "correct" : score / qs.length >= 0.6 ? "okay" : "wrong");
       if (id !== "retry" || score) gainXP(score * 2, "quiz");
       if (score === qs.length && qs.length >= 3) { gainXP(10, "perfect"); confetti(); }
       onDone && onDone(score, qs.length);
@@ -513,7 +579,8 @@
     return `<div class="card player">
       <div class="player-lv"><span class="lvl-big">${lv.icon}</span><div class="stack" style="gap:2px;min-width:0;flex:1"><span class="label">Level ${lv.n}</span><b class="lvl-name">${esc(lv.name)}</b>
         <div class="bar xp"><i style="width:${lv.p}%"></i></div><span class="small muted">${lv.next ? `${lv.need} XP to ${lv.next[1]} ${esc(lv.next[2])}` : "Top level reached"}</span></div></div>
-      <div class="player-goal"><span class="label">Daily goal</span><div class="goal"><span class="goal-v num">⚡ ${today}</span><span class="muted small">/ ${DAILY_GOAL} XP</span></div><div class="bar gold"><i style="width:${g}%"></i></div><span class="small muted">${today >= DAILY_GOAL ? "Goal reached. Keep going !" : "Each task = 10 XP. A full day = +25."}</span></div>
+      <div class="player-goal"><span class="label">Daily goal</span><div class="goal"><span class="goal-v num">⚡ ${today}</span><span class="muted small">/ ${DAILY_GOAL} XP</span></div><div class="bar gold"><i style="width:${g}%"></i></div><span class="small muted">${today >= DAILY_GOAL ? "Goal reached. Keep going !" : "Each task = 10 XP. A full day = +25."}</span>
+        <button class="btn small ghost" data-mute style="align-self:flex-start">${S.sfx === false ? "🔇 Sounds off" : "🔔 Sounds on"}</button></div>
     </div>`;
   }
   function nextBadgeCard() {
@@ -703,10 +770,10 @@
             <div class="row" style="justify-content:center"><button class="btn red" data-a="0">Not yet</button><button class="btn primary" data-a="1">I knew it</button></div>`
           : `<button class="btn primary" data-reveal>Show answer</button>`}`;
         if (mode === "fr" && !reveal) speak(w[0], 0.85);
-        const rv = $("[data-reveal]", card); if (rv) rv.onclick = () => { show(true); if (mode === "pic") speak(w[0], 0.85); };
+        const rv = $("[data-reveal]", card); if (rv) rv.onclick = () => { sfx("flip"); show(true); if (mode === "pic") setTimeout(() => speak(w[0], 0.85), 150); };
         $$("[data-a]", card).forEach((b) => (b.onclick = () => {
           const c = S.cards[k];
-          if (b.dataset.a === "1") { known++; c.b = Math.min(6, c.b + 1); } else c.b = 1;
+          if (b.dataset.a === "1") { known++; c.b = Math.min(6, c.b + 1); sfx("yes"); } else { c.b = 1; sfx("no"); }
           c.due = addDays(todayStr(), INTERVALS[c.b]); save(); i++; show(false);
         }));
       };
@@ -809,7 +876,7 @@
     if (btn) btn.onclick = () => {
       if (iv) { clearInterval(iv); iv = null; btn.textContent = "Resume"; return; }
       btn.textContent = "Pause";
-      iv = setInterval(() => { left--; fmt(); if (left <= 0) { clearInterval(iv); iv = null; btn.textContent = "Time's up"; el.style.color = "var(--red)"; } }, 1000);
+      iv = setInterval(() => { left--; fmt(); if (left <= 0) { clearInterval(iv); iv = null; btn.textContent = "Time's up"; el.style.color = "var(--red)"; sfx("alarm"); } }, 1000);
       window.addEventListener("hashchange", () => clearInterval(iv), { once: true });
     };
   }
@@ -1026,6 +1093,13 @@
       $("#nm", m).onchange = (e) => { S.name = e.target.value.trim(); save(); };
       $("#sd", m).onchange = (e) => { S.start = e.target.value; save(); };
       finished("plan", undefined);
+      $("#snd-voice", m).onchange = (e) => { S.voice = e.target.value; save(); speak("Bonjour ! Je suis votre nouvelle voix.", 0.9); };
+      $("#snd-rate", m).oninput = (e) => { S.rateMul = +e.target.value; $("#snd-rate-v", m).textContent = Math.round(S.rateMul * 100) + "%"; save(); };
+      $("#snd-vol", m).oninput = (e) => { S.vol = +e.target.value; $("#snd-vol-v", m).textContent = Math.round(S.vol * 100) + "%"; save(); };
+      $("#snd-vol", m).onchange = () => sfx("coin");
+      $("#snd-on", m).onchange = (e) => { S.sfx = e.target.checked; save(); if (S.sfx) sfx("check"); };
+      $("#snd-test", m).onclick = (e) => speak("Bonjour ! Bienvenue dans votre cours de français. On y va ?", 0.9, e.currentTarget);
+      $("#snd-fx", m).onclick = () => { const seq = ["check", "coin", "correct", "badge", "levelup"]; seq.forEach((n, i) => setTimeout(() => sfx(n), i * 700)); };
     });
     return `<div class="stack"><span class="label">Your progress</span><h1>How you're doing</h1></div>
       <div class="stats"><div class="stat"><div class="label">Days done</div><div class="v">${daysDone}/${TOTAL_DAYS}</div></div><div class="stat"><div class="label">Streak</div><div class="v">${streak()} 🔥</div></div>
@@ -1042,6 +1116,17 @@
       <div class="card"><h3>Study minutes, last 14 days</h3><div class="minibars">${last14.map((d) => `<div style="height:${pct(S.mins[d] || 0, maxM)}%" title="${d}: ${S.mins[d] || 0} min"></div>`).join("")}</div><div class="minibars-labels">${last14.map((d) => `<span>${d.slice(8)}</span>`).join("")}</div></div>
       <div class="card"><h3>Checkpoints</h3><ul class="clean">${Object.entries(window.CHECKPOINTS).map(([k, c]) => `<li class="spread"><a href="#cp-${k}">${esc(c.title)}</a>${S.cp[k] ? `<span class="chip ${S.cp[k].passed ? "good" : "warn"}">${S.cp[k].score}%${S.cp[k].passed ? " ✓" : ""}</span>` : `<span class="chip">not taken</span>`}</li>`).join("")}</ul></div>
       <div class="card"><h3>Recent activity</h3>${S.hist.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Activity</th><th>Score</th></tr></thead><tbody>${S.hist.slice(-12).reverse().map((h) => `<tr><td class="num">${new Date(h.t).toISOString().slice(0, 10)}</td><td>${esc(h.k)} · ${esc(h.id)}</td><td class="num">${h.s}/${h.m}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Nothing yet.</p>`}</div>
+      <div class="card" id="sec-sound"><h3>🔊 Sound</h3>
+        <div class="grid">
+          <div class="field"><label for="snd-voice">French voice</label><select id="snd-voice"><option value="">Best available (automatic)</option>${voices.map((v) => `<option value="${esc(v.voiceURI)}"${S.voice === v.voiceURI ? " selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")}</select></div>
+          <div class="field"><label for="snd-rate">Speaking speed: <span id="snd-rate-v" class="num">${Math.round((S.rateMul || 1) * 100)}%</span></label><input type="range" id="snd-rate" min="0.6" max="1.3" step="0.05" value="${S.rateMul || 1}"></div>
+          <div class="field"><label for="snd-vol">Effects volume: <span id="snd-vol-v" class="num">${Math.round((S.vol == null ? 0.7 : S.vol) * 100)}%</span></label><input type="range" id="snd-vol" min="0" max="1" step="0.05" value="${S.vol == null ? 0.7 : S.vol}"></div>
+        </div>
+        <div class="row"><label><input type="checkbox" id="snd-on"${S.sfx === false ? "" : " checked"}> Game sound effects (ticks, coins, level-up)</label></div>
+        <div class="row"><button class="btn" id="snd-test">🔊 Test the voice</button><button class="btn" id="snd-fx">🎉 Test the effects</button></div>
+        ${voices.length ? `<p class="small muted">${voices.length} French voice${voices.length > 1 ? "s" : ""} found. Voices with "Natural", "Neural", "Premium", "Enhanced" or "Google" in the name sound most human.</p>`
+          : `<div class="note alert"><b>No French voice found</b>Install one for free: on iPhone/Mac go to Settings → Accessibility → Spoken Content → Voices → French (pick an "Enhanced" one). On Android: Settings → Text-to-speech → Google → install French. On Windows: Settings → Time & Language → Speech → Add voices → Français. Then reload this page.</div>`}
+      </div>
       <div class="card"><h3>Settings</h3><div class="grid"><div class="field"><label for="nm">Name</label><input type="text" id="nm" value="${esc(S.name)}"></div><div class="field"><label for="sd">Start date</label><input type="date" id="sd" value="${esc(S.start)}"></div>
         <div class="field"><label for="acc">Voice accent</label><select id="acc"><option value="fr-FR"${S.accent === "fr-FR" ? " selected" : ""}>France</option><option value="fr-CA"${S.accent === "fr-CA" ? " selected" : ""}>Québec</option></select></div></div>
         <p class="small muted">${esc(syncNote)}. To move your progress to another browser, copy the backup text and paste it there.</p>
@@ -1072,11 +1157,13 @@
   // ---------- global events ----------
   document.addEventListener("click", (e) => {
     const s = e.target.closest("[data-say]");
-    if (s) { speak(s.dataset.say, +s.dataset.rate || undefined); if (s.hasAttribute("data-once")) { s.disabled = true; s.textContent = "Played"; } return; }
+    if (s) { speak(s.dataset.say, +s.dataset.rate || undefined, s.hasAttribute("data-once") ? null : s); if (s.hasAttribute("data-once")) { s.disabled = true; s.textContent = "Played"; } return; }
     const a = e.target.closest("[data-sayall]");
-    if (a) speak(a.dataset.sayall, 0.75);
+    if (a) { speak(a.dataset.sayall, 0.75, a); return; }
+    const mu = e.target.closest("[data-mute]");
+    if (mu) { e.preventDefault(); S.sfx = S.sfx === false; save(); if (S.sfx) sfx("check"); $$("[data-mute]").forEach((b) => (b.textContent = S.sfx === false ? "🔇 Sounds off" : "🔔 Sounds on")); }
   });
-  window.addEventListener("hashchange", render);
+  window.addEventListener("hashchange", () => { stopSpeaking(); render(); });
 
   PLAN = buildPlan();
   shell();

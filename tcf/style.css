@@ -254,3 +254,11 @@ a.wk:hover, a.wcard:hover { transform: translateY(-2px); }
   @keyframes bounce { 0% { transform: scale(.7); } 70% { transform: scale(1.05); } 100% { transform: scale(1); } }
 }
 @media (prefers-reduced-motion: no-preference) { .card { animation: rise .25s ease both; } @keyframes rise { from { transform: translateY(4px); } to { transform: none; } } }
+
+.hud-mute { align-self: flex-start; margin-top: 6px; }
+.say.speaking, .btn.speaking { border-color: var(--gold); background: var(--gold-soft); }
+@media (prefers-reduced-motion: no-preference) {
+  .say.speaking, .btn.speaking { animation: speakpulse 1s ease-in-out infinite; }
+  @keyframes speakpulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 50%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 0%, transparent); } }
+}
+input[type=range] { width: 100%; accent-color: var(--ink); }
