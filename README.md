@@ -1,5 +1,7 @@
 # AI Engineer Lab
 
+> Also in this repo: **[Chemin TCF](tcf/)**, a 9-month day-by-day French course for the TCF Canada (open `tcf/index.html`).
+
 A study platform for learning to **think like an AI engineer**: system design, evaluation, and building systems on top of foundation models that solve real business problems. It contains 29 realistic client projects across three levels.
 
 Every project follows the same eight stages, so the way of working becomes a habit:
