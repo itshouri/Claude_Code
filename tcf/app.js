@@ -18,6 +18,10 @@
   const TOTAL_DAYS = 273;
 
   const LESSONS = window.LESSONS, VOCAB = window.VOCAB, PHASES = window.PHASES, WEEKS = window.WEEKS;
+  const CONVS = window.CONVERSATIONS || [];
+  // Conversation phrases become (hidden) flashcard themes, so they share the same spaced review.
+  CONVS.forEach((c) => VOCAB.push({ id: "conv-" + c.id, title: c.title, icon: c.icon, hidden: true, words: c.lines.map((l) => [l[2], l[1], c.icon]) }));
+  const CV = Object.fromEntries(CONVS.map((x) => [x.id, x]));
   const L = Object.fromEntries(LESSONS.map((x) => [x.id, x]));
   const V = Object.fromEntries(VOCAB.map((x) => [x.id, x]));
   const LI = Object.fromEntries(window.LISTENING.map((x) => [x.id, x]));
@@ -30,7 +34,7 @@
 
   // ---------- state (saved in this browser, and in your claude.ai account when available) ----------
   const KEY = "chemin-tcf-v1";
-  const blank = () => ({ v: 1, updated: 0, sfx: true, vol: 0.7, voice: "", rateMul: 1, xp: 0, xpDay: {}, badges: {}, fixed: 0, best: 0, name: "", start: "", accent: "fr-FR", done: {}, quiz: {}, hist: [], errors: [], cards: {}, writing: {}, speaking: {}, videos: [], cp: {}, mins: {}, override: {}, learned: {} });
+  const blank = () => ({ v: 1, updated: 0, convListen: {}, sfx: true, vol: 0.7, voice: "", rateMul: 1, xp: 0, xpDay: {}, badges: {}, fixed: 0, best: 0, name: "", start: "", accent: "fr-FR", done: {}, quiz: {}, hist: [], errors: [], cards: {}, writing: {}, speaking: {}, videos: [], cp: {}, mins: {}, override: {}, learned: {} });
   let S = blank();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) { /* storage blocked: start fresh */ }
   let remote = null, saveTimer = null, syncNote = "Saved in this browser";
@@ -144,6 +148,8 @@
     ["voice", "🎤", "Chatterbox", "5 speaking tasks scored", () => countK("speak") >= 5],
     ["fixer", "🩹", "Mistake slayer", "Fix 20 mistakes", () => (S.fixed || 0) >= 20],
     ["video", "🎬", "Video learner", "Add 5 lesson videos", () => S.videos.length >= 5],
+    ["commuter", "🚶", "On the go", "Play 10 conversations in Listen mode", () => Object.values(S.convListen || {}).reduce((a, b) => a + b, 0) >= 10],
+    ["talker", "💬", "Conversationalist", "80%+ on every conversation quiz", () => CONVS.length && CONVS.every((c) => S.quiz["conv-" + c.id] && S.quiz["conv-" + c.id].best >= 80)],
     ["cp-images", "🖼️", "Picture perfect", "Pass checkpoint 1", () => S.cp.images && S.cp.images.passed],
     ["cp-a1", "🌱", "A1 unlocked", "Pass the A1 checkpoint", () => S.cp.a1 && S.cp.a1.passed],
     ["cp-a2", "🌿", "A2 unlocked", "Pass the A2 checkpoint", () => S.cp.a2 && S.cp.a2.passed],
@@ -171,8 +177,8 @@
   // ---------- speech (your browser's French voice) ----------
   // Picks the most natural French voice on your device. Natural/neural/premium voices
   // sound like a real person; basic ones sound robotic. You can change it in Progress → Sound.
-  let voices = [];
-  function loadVoices() { try { voices = speechSynthesis.getVoices().filter((v) => /^fr/i.test(v.lang)); } catch (e) { voices = []; } }
+  let voices = [], enVoices = [];
+  function loadVoices() { try { const all = speechSynthesis.getVoices(); voices = all.filter((v) => /^fr/i.test(v.lang)); enVoices = all.filter((v) => /^en/i.test(v.lang)); } catch (e) { voices = []; } }
   if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = () => { const had = voices.length; loadVoices(); if (!had && voices.length && /^#progress/.test(location.hash)) render(); }; }
   function voiceScore(v) {
     let n = 0;
@@ -188,6 +194,26 @@
     if (S.voice) { const v = voices.find((x) => x.voiceURI === S.voice); if (v) return v; }
     return voices.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
   }
+  function bestEnVoice() {
+    const score = (v) => (/natural|neural|online|premium|enhanced|google/i.test(v.name) ? 10 : 0) + (/en-(US|GB|CA)/i.test(v.lang.replace("_", "-")) ? 3 : 0);
+    return enVoices.slice().sort((a, b) => score(b) - score(a))[0] || null;
+  }
+  // One spoken line that resolves when finished (with a safety timer, since some browsers skip "onend").
+  function sayOnce(text, lang, rate) {
+    return new Promise((res) => {
+      if (!("speechSynthesis" in window)) return res();
+      const fr = /^fr/.test(lang), v = fr ? bestVoice() : bestEnVoice();
+      const u = new SpeechSynthesisUtterance(text.replace(/[—–]/g, ", ").replace(/…/g, ""));
+      if (v) u.voice = v;
+      u.lang = v ? v.lang : lang;
+      u.rate = Math.max(0.5, Math.min(1.4, rate * (fr ? S.rateMul || 1 : 1)));
+      let done = false; const end = () => { if (!done) { done = true; clearTimeout(safety); res(); } };
+      const safety = setTimeout(end, 1500 + (text.length * 110) / u.rate);
+      u.onend = u.onerror = end;
+      speechSynthesis.speak(u);
+    });
+  }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let speakingBtn = null;
   function stopSpeaking() { try { speechSynthesis.cancel(); } catch (e) {} if (speakingBtn) speakingBtn.classList.remove("speaking"); speakingBtn = null; }
   function speak(text, rate, btn) {
@@ -256,7 +282,7 @@
     listen: { icon: "🎧", min: 15 }, read: { icon: "📖", min: 15 }, write: { icon: "✍️", min: 25 }, speak: { icon: "🗣️", min: 15 },
     video: { icon: "🎬", min: 30 }, mistakes: { icon: "🩹", min: 10 }, checkpoint: { icon: "🏁", min: 40 }, exam: { icon: "🗺️", min: 20 },
     say: { icon: "💬", min: 10 }, homework: { icon: "📝", min: 15 }, review: { icon: "🔁", min: 20 }, plan: { icon: "🧭", min: 10 },
-    mock: { icon: "⏱️", min: 60 }, situation: { icon: "🎭", min: 15 }, rest: { icon: "☕", min: 0 }, material: { icon: "📦", min: 60 },
+    mock: { icon: "⏱️", min: 60 }, conv: { icon: "💬", min: 15 }, situation: { icon: "🎭", min: 15 }, rest: { icon: "☕", min: 0 }, material: { icon: "📦", min: 60 },
   };
 
   const TEMPLATES = {
@@ -317,6 +343,12 @@
         }
         days.push({ d, w: wk.w, phase: wk.phase, tasks });
       });
+      (wk.conv || []).forEach((id, j) => {
+        if (!CV[id]) return;
+        const base = (wk.w - 1) * 7;
+        days[base + 1 + j].tasks.push({ k: "conv", ref: id, mode: "practice" });
+        days[base + 4 + j].tasks.push({ k: "conv", ref: id, mode: "listen" });
+      });
     }
     return days;
   }
@@ -373,6 +405,8 @@
       case "mock": label = label || "Timed test"; href = "#mock-" + t.ref; sub = "Platform practice set. If you have official-style tests, use test #" + t.ref + " from your material instead."; break;
       case "situation": label = `Real-life situation: ${SI[t.ref].title}`; href = "#sit-" + t.ref; break;
       case "rest": label = label || "Rest day. A 5-minute flashcard review keeps your streak."; break;
+      case "conv": label = t.mode === "listen" ? `Hands-free replay: ${CV[t.ref].title}` : `Conversation: ${CV[t.ref].title}`; href = "#conv-" + t.ref;
+        sub = t.mode === "listen" ? "Listen mode while you walk, cook or commute. Say each line before the French plays." : "Audio method: English → your turn → French fast → French slow. Then the quiz."; break;
       case "material": break;
     }
     return { icon: k.icon, min: t.k === "write" && /Full/.test(label) ? 60 : k.min, label, href, sub };
@@ -476,11 +510,11 @@
 
   // ---------- pages ----------
   const NAV = [
-    ["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Lessons"], ["words", "🖼️", "Words"], ["flash", "🃏", "Flashcards"],
+    ["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Lessons"], ["words", "🖼️", "Words"], ["conv", "💬", "Conversations"], ["flash", "🃏", "Flashcards"],
     ["practice", "🎧", "Practice"], ["videos", "🎬", "Videos"], ["exam", "🎯", "TCF guide"], ["mistakes", "🩹", "Mistakes"], ["progress", "📈", "Progress"],
   ];
   const TABS = [["today", "☀️", "Today"], ["roadmap", "🗺️", "Roadmap"], ["lessons", "📘", "Learn"], ["practice", "🎧", "Practice"], ["more", "☰", "More"]];
-  const section = (r) => { const base = r.split("-")[0]; return { week: "roadmap", day: "roadmap", lesson: "lessons", cp: "roadmap", review: "lessons", vquiz: "words", listen: "practice", read: "practice", write: "practice", speak: "practice", sit: "practice", mock: "practice", "progress": "progress" }[base] || base; };
+  const section = (r) => { const base = r.split("-")[0]; return { conv: "conv", week: "roadmap", day: "roadmap", lesson: "lessons", cp: "roadmap", review: "lessons", vquiz: "words", listen: "practice", read: "practice", write: "practice", speak: "practice", sit: "practice", mock: "practice", "progress": "progress" }[base] || base; };
 
   function shell() {
     let app = document.getElementById("app");
@@ -505,12 +539,12 @@
     const [base, ...rest] = r.split("-"); const arg = rest.join("-");
     const sec = section(r);
     $$("[data-r]").forEach((a) => a.classList.toggle("on", a.dataset.r === sec || (a.dataset.r === "more" && !TABS.some((t) => t[0] === sec))));
-    if (!["listen", "read", "write", "speak", "lesson", "vquiz", "flash", "cp", "review", "mock", "words", "sit", "videos", "mistakes", "exam", "progress"].includes(base)) ctx = null;
+    if (!["conv", "listen", "read", "write", "speak", "lesson", "vquiz", "flash", "cp", "review", "mock", "words", "sit", "videos", "mistakes", "exam", "progress"].includes(base)) ctx = null;
     const main = $("#main");
     const pages = { today: pageToday, roadmap: pageRoadmap, week: () => pageWeek(+arg), day: () => pageDay(+arg), lessons: pageLessons, lesson: () => pageLesson(arg),
       words: () => (arg ? pageTheme(arg) : pageWords()), flash: pageFlash, vquiz: () => pageVQuiz(arg), practice: pagePractice, listen: () => pageListen(arg), read: () => pageRead(arg),
       write: () => pageWrite(arg), speak: () => pageSpeak(arg), sit: () => pageSituation(arg), mock: () => pageMock(+arg), videos: () => pageVideos(arg), exam: () => pageExam(arg),
-      mistakes: pageMistakes, progress: () => pageProgress(arg), cp: () => pageCheckpoint(arg), review: () => pageReview(arg), method: pageMethod, more: pageMore };
+      conv: () => (arg ? pageConv(arg) : pageConvs()), mistakes: pageMistakes, progress: () => pageProgress(arg), cp: () => pageCheckpoint(arg), review: () => pageReview(arg), method: pageMethod, more: pageMore };
     main.innerHTML = `<div class="page">${(pages[base] || pageToday)()}</div>`;
     window.scrollTo(0, 0);
     if (arg && (base === "exam" || base === "progress")) { const el = document.getElementById("sec-" + arg); if (el) el.scrollIntoView(); }
@@ -721,9 +755,9 @@
 
   // Words
   function pageWords() {
-    return `<div class="stack"><span class="label">${VOCAB.reduce((a, t) => a + t.words.length, 0)} words · ${VOCAB.length} themes</span><h1>Words with pictures</h1>
+    return `<div class="stack"><span class="label">${VOCAB.filter((t) => !t.hidden).reduce((a, t) => a + t.words.length, 0)} words · ${VOCAB.filter((t) => !t.hidden).length} themes</span><h1>Words with pictures</h1>
       <p class="muted">The "Le français en images" method: see the picture, hear the word, say it. Then add the theme to your flashcards so you review it at the right moment.</p></div>
-      <div class="grid tight">${VOCAB.map((t) => `<a class="wcard theme" href="#words-${t.id}"><span class="pic">${t.icon}</span><b>${esc(t.title)}</b><span class="small muted">${t.words.length} words</span>${S.learned[t.id] ? `<span class="chip good">In flashcards</span>` : ""}</a>`).join("")}</div>`;
+      <div class="grid tight">${VOCAB.filter((t) => !t.hidden).map((t) => `<a class="wcard theme" href="#words-${t.id}"><span class="pic">${t.icon}</span><b>${esc(t.title)}</b><span class="small muted">${t.words.length} words</span>${S.learned[t.id] ? `<span class="chip good">In flashcards</span>` : ""}</a>`).join("")}</div>`;
   }
   function pageTheme(id) {
     const t = V[id]; if (!t) return pageWords();
@@ -798,6 +832,7 @@
       <section class="card"><h2>📖 Reading (compréhension écrite)</h2><div class="weeks">${window.READING.map((x) => item("#read-" + x.id, x.title, x.level, sc(x.id))).join("")}</div></section>
       <section class="card"><h2>✍️ Writing (expression écrite)</h2><div class="weeks">${window.WRITING.map((x) => item("#write-" + x.id, x.en, "Task " + x.task, done(S.writing[x.id]))).join("")}</div></section>
       <section class="card"><h2>🗣️ Speaking (expression orale)</h2><div class="weeks">${window.SPEAKING.map((x) => item("#speak-" + x.id, x.en, "Task " + x.task, done(S.speaking[x.id]))).join("")}</div></section>
+      <section class="card"><h2>💬 Conversations (audio method)</h2><p class="muted small">English → your turn → French fast → French slow. With a hands-free Listen mode for walks and commutes.</p><div class="grid tight">${CONVS.map((x) => `<a class="wcard theme" href="#conv-${x.id}"><span class="pic">${x.icon}</span><b>${esc(x.title)}</b><span class="chip blue">${x.level}</span></a>`).join("")}</div></section>
       <section class="card"><h2>🎭 Real-life situations</h2><div class="grid tight">${window.SITUATIONS.map((x) => `<a class="wcard theme" href="#sit-${x.id}"><span class="pic">${x.icon}</span><b>${esc(x.title)}</b></a>`).join("")}</div></section>
       <section class="card"><h2>⏱️ Timed mini-tests</h2><p class="muted small">A listening set + a reading set at B1–B2 level, timed. Used every day in the TCF Camp.</p><a class="btn" href="#mock-1">Start a mini-test</a></section>`;
   }
@@ -952,6 +987,95 @@
       ${rs.map((x) => `<div class="card"><h3>Text: ${esc(x.title)}</h3><div class="script">${esc(x.text)}</div></div>`).join("")}
       <div class="card"><h3>All questions</h3>${quizHTML(qs, id)}</div>
       ${n === 0 ? `<div class="card"><h3>Then do the writing and speaking parts</h3><div class="row"><a class="btn" href="#write-w8">Writing task 3</a><a class="btn" href="#speak-s1">Speaking task 1</a><a class="btn" href="#speak-s3">Speaking task 2</a><a class="btn" href="#speak-s7">Speaking task 3</a></div></div>` : ""}`;
+  }
+
+  // Conversations
+  function pageConvs() {
+    const m = window.AUDIO_METHOD;
+    return `<div class="stack"><span class="label">${CONVS.length} real-life scenarios</span><h1>💬 Conversations</h1><p class="muted">Everyday dialogues practised with the audio-course method. Each one appears in your plan in the week its topic comes up.</p></div>
+      <div class="card"><h2>🎧 ${esc(m.title)}</h2><p>${md(m.simple)}</p><div class="note analogy"><b>Think of it like this</b>${md(m.analogy)}</div><ul class="points">${m.tips.map((t) => `<li>${md(t)}</li>`).join("")}</ul></div>
+      <div class="weeks">${CONVS.map((c) => { const q = S.quiz["conv-" + c.id], n = (S.convListen || {})[c.id] || 0; const w = WEEKS.find((x) => (x.conv || [])[0] === c.id);
+        return `<a class="wk" href="#conv-${c.id}"><span class="row" style="gap:6px"><span style="font-size:1.6rem">${c.icon}</span><span class="chip blue">${c.level}</span>${w ? `<span class="chip">Week ${w.w}</span>` : ""}</span><b>${esc(c.title)}</b><span class="small muted">${esc(c.fr)} · ${c.lines.length} lines</span>
+          <span class="row" style="gap:6px">${q ? `<span class="chip ${q.best >= 80 ? "good" : "warn"}">Quiz ${q.best}%</span>` : ""}${n ? `<span class="chip gold">🎧 ×${n}</span>` : ""}</span></a>`; }).join("")}</div>`;
+  }
+
+  // Listen-mode player: plays English → pause → French fast → French slow for every line.
+  let player = null;
+  function stopPlayer() { if (player) { player.token++; player.playing = false; try { speechSynthesis.cancel(); } catch (e) {} if (player.lock) { player.lock.release().catch(() => {}); player.lock = null; } } }
+  async function runPlayer(c, root) {
+    const P = player, tok = ++P.token; P.playing = true; paintPlayer(root);
+    try { if (navigator.wakeLock) P.lock = await navigator.wakeLock.request("screen"); } catch (e) { /* not allowed: fine */ }
+    while (P.playing && tok === P.token) {
+      if (P.i >= c.lines.length) {
+        S.convListen[c.id] = (S.convListen[c.id] || 0) + 1; gainXP(10, "listening"); finished("conv", c.id); save();
+        if (P.loop) { P.i = 0; continue; }
+        P.playing = false; P.i = 0; paintPlayer(root); toast("Scenario finished ✓"); break;
+      }
+      paintPlayer(root);
+      const [, en, fr] = c.lines[P.i];
+      if (!P.frOnly) { await sayOnce(en, "en-US", 1); if (tok !== P.token) return; await wait(P.gap * 1000); if (tok !== P.token) return; }
+      await sayOnce(fr, "fr-FR", 1.0); if (tok !== P.token) return;
+      await wait(450); if (tok !== P.token) return;
+      await sayOnce(fr, "fr-FR", 0.68); if (tok !== P.token) return;
+      await wait(900); if (tok !== P.token) return;
+      P.i++;
+    }
+  }
+  function paintPlayer(root) {
+    const P = player; if (!P || !root) return;
+    const b = $("#pl-play", root); if (b) b.textContent = P.playing ? "⏸ Pause" : P.i ? "▶ Resume" : "▶ Play hands-free";
+    const pos = $("#pl-pos", root); if (pos) pos.textContent = `Line ${Math.min(P.i + 1, P.total)} of ${P.total}`;
+    $$(".cline", root).forEach((el) => el.classList.toggle("now", P.playing && +el.dataset.i === P.i));
+    const cur = $(`.cline[data-i="${P.i}"]`, root);
+    if (P.playing && cur) { cur.classList.add("show"); const r = cur.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight - 90) cur.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  }
+  function pageConv(id) {
+    const c = CV[id]; if (!c) return pageConvs();
+    const qid = "conv-" + id;
+    const pool = c.lines.map((l) => l[2]);
+    const qs = shuffle(c.lines).slice(0, Math.min(8, c.lines.length)).map((l) => {
+      const o = shuffle([l[2], ...shuffle(pool.filter((x) => x !== l[2])).slice(0, 3)]);
+      return { t: "mcq", q: `How do you say: "${l[1]}"`, o, a: o.indexOf(l[2]), why: l[2] };
+    });
+    player = { i: 0, total: c.lines.length, token: 0, playing: false, gap: 3, frOnly: false, loop: false };
+    later((m) => {
+      wireQuiz(m, qs, qid, (s, n) => { recordQuiz(qid, s, n, "listen"); finished("conv", id); });
+      $("#pl-play", m).onclick = () => { if (player.playing) { stopPlayer(); paintPlayer(m); } else runPlayer(c, m); };
+      $("#pl-prev", m).onclick = () => { const was = player.playing; stopPlayer(); player.i = Math.max(0, player.i - 1); paintPlayer(m); if (was) runPlayer(c, m); };
+      $("#pl-next", m).onclick = () => { const was = player.playing; stopPlayer(); player.i = Math.min(c.lines.length - 1, player.i + 1); paintPlayer(m); if (was) runPlayer(c, m); };
+      $("#pl-gap", m).onchange = (e) => (player.gap = +e.target.value);
+      $("#pl-fr", m).onchange = (e) => (player.frOnly = e.target.checked);
+      $("#pl-loop", m).onchange = (e) => (player.loop = e.target.checked);
+      $("#hidefr", m).onchange = (e) => $("#clines", m).classList.toggle("hidefr", e.target.checked);
+      $$(".cline", m).forEach((el) => {
+        const i = +el.dataset.i, l = c.lines[i];
+        $(".cfr", el).onclick = () => el.classList.add("show");
+        $("[data-drill]", el).onclick = async (e) => { const btn = e.currentTarget; stopPlayer(); stopSpeaking(); btn.classList.add("speaking"); el.classList.remove("show");
+          await sayOnce(l[1], "en-US", 1); await wait(3000); el.classList.add("show"); await sayOnce(l[2], "fr-FR", 1); await wait(400); await sayOnce(l[2], "fr-FR", 0.68); btn.classList.remove("speaking"); };
+      });
+      $("#addconv", m).onclick = () => { addTheme("conv-" + id); gainXP(10, "new phrases"); render(); };
+      paintPlayer(m);
+    });
+    return `<div class="crumbs"><a href="#conv">Conversations</a> › <span>${esc(c.title)}</span></div>
+      <div class="stack"><span class="label">${c.level} · ${c.lines.length} lines · audio method</span><h1>${c.icon} ${esc(c.title)}</h1><div class="row">${sayBtn(c.fr)}<span class="muted">${esc(c.fr)}</span></div></div>
+      <div class="card"><div class="note"><b>In plain words</b>${md(c.simple)}</div><div class="note analogy"><b>Think of it like this</b>${md(c.analogy)}</div></div>
+      <div class="card player-card">
+        <div class="spread"><h3>🎧 Listen mode</h3><span class="chip num" id="pl-pos"></span></div>
+        <p class="small muted">English → pause (say it in French!) → French fast → French slow, line after line. Press play, put the phone in your pocket, and talk.</p>
+        <div class="row"><button class="btn" id="pl-prev" aria-label="Previous line">⏮</button><button class="btn primary" id="pl-play">▶ Play hands-free</button><button class="btn" id="pl-next" aria-label="Next line">⏭</button></div>
+        <div class="row small"><label for="pl-gap">Your turn:</label><select id="pl-gap" style="width:auto"><option value="2">2 s</option><option value="3" selected>3 s</option><option value="5">5 s</option><option value="8">8 s</option></select>
+          <label><input type="checkbox" id="pl-fr"> French only (for replays)</label><label><input type="checkbox" id="pl-loop"> Loop</label></div>
+      </div>
+      <div class="card"><div class="spread"><h3>🗣️ Practice mode</h3><label class="small"><input type="checkbox" id="hidefr" checked> Hide French (test yourself)</label></div>
+        <p class="small muted">Read the English, say the French out loud, then tap the grey box to check. ▶ plays one line the audio-course way.</p>
+        <div class="clines hidefr" id="clines">${c.lines.map((l, i) => `<div class="cline" data-i="${i}">
+          <span class="who ${l[0] === "A" ? "a" : "b"}">${l[0]}</span>
+          <div class="ctext"><div class="cen">${esc(l[1])}</div><button class="cfr" type="button">${esc(l[2])}</button></div>
+          <div class="cbtns"><button class="say" data-drill title="English → pause → French" aria-label="Drill this line">▶</button>${sayBtn(l[2], 1)}${sayBtn(l[2], 0.68).replace("🔊", "🐢")}</div>
+        </div>`).join("")}</div></div>
+      <div class="card"><h3>💡 Good to know</h3><ul class="points">${c.notes.map((n) => `<li>${md(n)}</li>`).join("")}</ul>
+        <div class="row"><button class="btn" id="addconv">${S.learned["conv-" + id] ? "✓ In flashcards (add again)" : "🃏 Add these phrases to my flashcards"}</button></div></div>
+      <div class="card"><h2>🎯 Quiz</h2><p class="muted small">Choose the right French for each English sentence. Reload for a new order.</p>${quizHTML(qs, qid)}</div>`;
   }
 
   // Videos
@@ -1163,7 +1287,7 @@
     const mu = e.target.closest("[data-mute]");
     if (mu) { e.preventDefault(); S.sfx = S.sfx === false; save(); if (S.sfx) sfx("check"); $$("[data-mute]").forEach((b) => (b.textContent = S.sfx === false ? "🔇 Sounds off" : "🔔 Sounds on")); }
   });
-  window.addEventListener("hashchange", () => { stopSpeaking(); render(); });
+  window.addEventListener("hashchange", () => { stopSpeaking(); stopPlayer(); render(); });
 
   PLAN = buildPlan();
   shell();

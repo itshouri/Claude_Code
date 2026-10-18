@@ -22,6 +22,7 @@ Each phase ends with a **checkpoint** (70% + every can-do statement ticked), bec
 - **Today**: your next study day as a checklist. Tap *Start* on a task; finishing the activity ticks it.
 - **Roadmap**: 6 phases, 39 weeks, 273 days, plus the 273-day board.
 - **Lessons**: 45 lessons (10 pronunciation, 12 A1, 13 A2, 10 B1–B2): rule, analogy, examples with audio, mistakes, quiz.
+- **Conversations**: 9 real-life dialogues (formal introductions, catching up with a friend, family, weather, restaurant, business meeting, directions, taxi, hotel) practised the audio-course way: English → your turn → French fast → French slow. Hands-free Listen mode for walks and commutes, Practice mode with hidden French, a quiz, and one tap to add the phrases to your flashcards. Each scenario is scheduled in the week its topic comes up.
 - **Words + Flashcards**: 27 picture themes and spaced-repetition review (1, 2, 4, 7, 15, 30 days).
 - **Practice**: TCF-style listening (read aloud by your device's French voice), reading, writing (timer, word count, model answers, self-score) and speaking (timers, recorder or voice-note upload, model answers).
 - **Videos**: add the lesson videos you receive to the right week and lesson, with the video study method.
@@ -52,6 +53,7 @@ tcf/content/vocab.js      picture vocabulary
 tcf/content/phonetics.js  pronunciation lessons
 tcf/content/grammar-*.js  A1, A2 and B1–B2 lessons
 tcf/content/practice.js   listening, reading, writing, speaking, situations
+tcf/content/conversations.js  dialogue scenarios + the audio method
 ```
 
 To add a lesson, push an object into `window.LESSONS` (same shape as the others) and add its id to a week in `WEEKS` in `content/roadmap.js`.

@@ -262,3 +262,17 @@ a.wk:hover, a.wcard:hover { transform: translateY(-2px); }
   @keyframes speakpulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 50%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 0%, transparent); } }
 }
 input[type=range] { width: 100%; accent-color: var(--ink); }
+
+/* Conversations */
+.clines { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.cline { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); border-radius: 8px; transition: background .2s ease; }
+.cline.now { background: var(--gold-soft); }
+.who { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; font-weight: 800; background: var(--soft); }
+.who.b { background: var(--ink); color: var(--paper); }
+.ctext { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cen { color: var(--muted); font-size: .92rem; }
+.cfr { all: unset; font-weight: 700; cursor: pointer; border-radius: 6px; overflow-wrap: anywhere; }
+.hidefr .cline:not(.show) .cfr { color: transparent; background: var(--soft); user-select: none; }
+.hidefr .cline:not(.show) .cfr::after { content: ""; }
+.cbtns { display: flex; gap: 6px; }
+@media (max-width: 480px) { .cline { grid-template-columns: 26px minmax(0, 1fr); } .cbtns { grid-column: 2; } }
